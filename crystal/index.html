@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CU Crystal Offset</title>
+<style>
+  :root {
+    --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc;
+    --accent: #2f6fd6; --good: #1f8a4c; --warn: #b26b00; --bad: #c0392b; --dot: #9aa3b2; --fast: #2f6fd6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #141413; --panel: #1e1e1c; --text: #ecebe6; --muted: #9b9a93; --line: #34332f;
+      --accent: #6ea0f0; --good: #4cc47f; --warn: #e0a040; --bad: #ef6b5b; --dot: #5d6470; --fast: #6ea0f0;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 880px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .sub { color: var(--muted); margin: 0 0 20px; }
+  section { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 16px; margin-bottom: 16px; }
+  h2 { font-size: 15px; margin: 0 0 12px; }
+  .row { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; }
+  label { color: var(--muted); font-size: 13px; display: flex; gap: 6px; align-items: center; }
+  select, input { font: inherit; padding: 4px 6px; border: 1px solid var(--line); border-radius: 6px; background: var(--bg); color: var(--text); }
+  input[type=number] { width: 90px; }
+  button { font: inherit; padding: 6px 14px; border-radius: 6px; border: 1px solid var(--line); background: var(--bg); color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button:disabled { opacity: .45; cursor: default; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+  .stat .k { color: var(--muted); font-size: 12px; }
+  .stat .v { font-variant-numeric: tabular-nums; font-size: 17px; }
+  .big { font-size: 34px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .note { color: var(--muted); font-size: 13px; }
+  .ok { color: var(--good); } .warn { color: var(--warn); } .bad { color: var(--bad); }
+  canvas { width: 100%; height: 220px; display: block; }
+  pre { margin: 0; max-height: 220px; overflow: auto; font: 12px/1.45 ui-monospace, Menlo, monospace; color: var(--muted); white-space: pre-wrap; }
+  ul { margin: 6px 0 0; padding-left: 18px; }
+  a { color: var(--accent); }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chameleon Ultra crystal offset</h1>
+  <p class="sub">Times the CU's 32 MHz crystal against an internet time server, over USB, in the browser. To use NTP instead,
+    run <code>hfxo_ntp.py</code> from the same folder.</p>
+
+  <section>
+    <h2>Before you start</h2>
+    <ul class="note">
+      <li><b>Chrome or Edge on a desktop</b> (Web Serial). Use USB; Bluetooth adds too much jitter.</li>
+      <li><b>Firmware with command 3125</b> (the crystal tick counter). Stock firmware doesn't have it: flash the test firmware below first.</li>
+      <li>Close anything else using the CU's port (ChameLab, the Python CLI). Keep the CU away from readers and don't run LF commands during the run.</li>
+      <li>Keep this tab open and the computer awake. Don't switch networks mid-run: the result assumes the path to the time server stays the same.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Firmware</h2>
+    <p class="note" style="margin-top:0">Test firmware: stock v2.3.0 plus command 3125, nothing else
+      (<a href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count">source, branch <code>feat/hfxo-count</code></a>).
+      Chameleon Ultra only, not Lite. Flashing replaces the firmware; slots and saved cards are kept. Flash stock v2.3.0 back when
+      you're done.</p>
+    <div class="row">
+      <button id="flashTest">Flash test firmware…</button>
+      <button id="flashStock">Flash stock v2.3.0…</button>
+      <button id="flashDfu" class="primary" hidden>Allow the bootloader (first time only)…</button>
+      <span id="flashinfo" class="note"></span>
+    </div>
+  </section>
+
+  <section>
+    <h2>Run</h2>
+    <div class="row" style="margin-bottom:12px">
+      <button id="connect">Connect CU…</button>
+      <span id="devinfo" class="note">Not connected</span>
+    </div>
+    <div class="row" style="margin-bottom:12px">
+      <label>Duration
+        <select id="minutes">
+          <option value="5">5 min (rough)</option>
+          <option value="15">15 min</option>
+          <option value="30" selected>30 min</option>
+          <option value="60">60 min</option>
+        </select>
+      </label>
+      <label>Burst size <input id="burst" type="number" min="20" max="400" value="120"></label>
+    </div>
+    <div class="row">
+      <button id="start" class="primary" disabled>Start</button>
+      <button id="finish" disabled>Finish now</button>
+      <button id="abort" disabled>Abort</button>
+      <button id="download" disabled>Download log</button>
+    </div>
+  </section>
+
+  <section>
+    <h2>Progress</h2>
+    <div class="grid">
+      <div class="stat"><div class="k">Phase</div><div class="v" id="phase">idle</div></div>
+      <div class="stat"><div class="k">Elapsed</div><div class="v" id="elapsed">–</div></div>
+      <div class="stat"><div class="k">CU reads</div><div class="v" id="reads">–</div></div>
+      <div class="stat"><div class="k">Time-server samples</div><div class="v" id="refn">–</div></div>
+      <div class="stat"><div class="k">Fastest round trip</div><div class="v" id="minrtt">–</div></div>
+      <div class="stat"><div class="k">Provisional offset</div><div class="v" id="prov">–</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Result</h2>
+    <div class="big" id="result">–</div>
+    <div class="note" id="resultnote">Crystal offset against the time server. Appears after the final burst.</div>
+    <div class="grid" style="margin-top:12px">
+      <div class="stat"><div class="k">Against this computer's clock</div><div class="v" id="uncorr">–</div></div>
+      <div class="stat"><div class="k">This computer's clock vs server</div><div class="v" id="host">–</div></div>
+      <div class="stat"><div class="k">CU read scatter (rms)</div><div class="v" id="rms">–</div></div>
+      <div class="stat" style="grid-column: 1 / -1"><div class="k">Path check (first half vs second half)</div><div class="v" id="bounds">–</div></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Server minus local clock, fitted line removed</h2>
+    <canvas id="plot"></canvas>
+    <div class="note">Grey: every sample. Blue: the fastest samples of each burst and probe. Zero line: the fit. Slow requests sit
+      above or below it; fast mid-run points well off it mean the path changed.</div>
+  </section>
+
+  <section>
+    <h2>Log</h2>
+    <pre id="log"></pre>
+  </section>
+</main>
+
+<script type="module">
+import * as H from "./hfxo.js";
+
+const REF_URL = "https://time.akamai.com/?ms";
+const CU_INTERVAL = 2.0;      // s between CU reads, as hfxo_ntp.py
+const BURST_GAP = 0.25;       // s between requests inside a burst
+const PROBE_EVERY = 60;       // s between mid-run probes
+const PROBE_N = 5;            // requests per probe; its fastest is the probe's point
+
+const $ = (id) => document.getElementById(id);
+const nowS = () => (performance.timeOrigin + performance.now()) / 1000;
+const fmt = (v, d = 2) => (v >= 0 ? "+" : "") + v.toFixed(d);
+const logEl = $("log");
+function log(msg) {
+  const line = `${new Date().toISOString().slice(11, 19)}  ${msg}`;
+  logEl.textContent += line + "\n";
+  logEl.scrollTop = logEl.scrollHeight;
+}
+
+// Sleep in a worker: a hidden tab throttles its own timers to once a minute, a worker's are not.
+const worker = new Worker(URL.createObjectURL(new Blob(
+  ["onmessage = (e) => setTimeout(() => postMessage(e.data.id), e.data.ms);"], { type: "text/javascript" })));
+const sleepers = new Map();
+let sleepId = 0;
+worker.onmessage = (e) => { sleepers.get(e.data)?.(); sleepers.delete(e.data); };
+const sleep = (s) => new Promise((r) => { const id = ++sleepId; sleepers.set(id, r); worker.postMessage({ id, ms: Math.max(0, s * 1000) }); });
+
+// ---------------------------------------------------------------- devices
+
+class SerialCU {
+  async open(port) {
+    this.port = port;
+    await port.open({ baudRate: 115200 });
+    this.reader = port.readable.getReader();
+    this.writer = port.writable.getWriter();
+    this.parser = new H.FrameParser();
+    this.pending = null;
+    this.loop();
+  }
+  async loop() {
+    try {
+      for (;;) {
+        const { value, done } = await this.reader.read();
+        if (done) break;
+        const t = nowS();
+        for (const f of this.parser.push(value)) {
+          const p = this.pending;
+          if (p && f.cmd === p.cmd) { this.pending = null; clearTimeout(p.timer); p.resolve({ ...f, ta: t }); }
+        }
+      }
+    } catch (e) { this.pending?.reject(e); this.pending = null; }
+  }
+  async cmd(cmd, data = new Uint8Array(0), timeoutS = 3) {
+    if (this.pending) throw new Error("command already in flight");
+    const reply = new Promise((resolve, reject) => {
+      this.pending = { cmd, resolve, reject,
+        timer: setTimeout(() => { this.pending = null; reject(new Error(`no reply to ${cmd}`)); }, timeoutS * 1000) };
+    });
+    const tb = nowS();
+    await this.writer.write(H.makeFrame(cmd, 0, data));
+    const r = await reply;
+    return { ...r, tb };
+  }
+  async version() {
+    const r = await this.cmd(H.CMD_GET_GIT_VERSION);
+    return r.status === H.STATUS_SUCCESS ? new TextDecoder().decode(r.data) : `? (status 0x${r.status.toString(16)})`;
+  }
+  async hfxo(sub) {
+    const r = await this.cmd(H.CMD_HFXO_COUNT, Uint8Array.of(sub));
+    if (r.status === H.STATUS_INVALID_CMD) throw new Error("firmware has no command 3125: flash the test firmware first");
+    if (r.status !== H.STATUS_SUCCESS) throw new Error(`3125 returned status 0x${r.status.toString(16)}`);
+    return { tb: r.tb, ta: r.ta, ...H.parseHfxoCount(r.data) };
+  }
+  async close() {
+    try { this.reader.cancel(); this.reader.releaseLock(); this.writer.releaseLock(); await this.port.close(); } catch {}
+  }
+}
+
+let cu = null;
+
+$("connect").onclick = async () => {
+  if (!("serial" in navigator)) { log("This browser has no Web Serial. Use Chrome or Edge on a desktop."); return; }
+  try {
+    const port = await navigator.serial.requestPort();
+    await cu?.close();
+    cu = new SerialCU();
+    await cu.open(port);
+    const v = await cu.version();
+    $("devinfo").textContent = `Connected: firmware ${v}`;
+    log(`connected, firmware ${v}`);
+    $("start").disabled = false;
+  } catch (e) { log(`connect failed: ${e.message}`); }
+};
+
+// ---------------------------------------------------------------- flashing
+
+// chameleon-ultra.js does the Nordic DFU. The CU reboots into its bootloader, which is a different USB device with
+// its own permission. Chrome remembers ports it has been allowed, so the browser only asks for the bootloader the
+// first time; after that the page finds it. The library always opens the port picker, so connectTo() answers the
+// picker with a known port instead.
+const CUJS = "https://cdn.jsdelivr.net/npm/chameleon-ultra.js@0.4.7";
+const DFU_USB = { usbVendorId: 0x1915, usbProductId: 0x521f };
+const FIRMWARE = {
+  test: { zip: "firmware/hfxo-count-4e494589-ultra-dfu-app.zip", name: "test firmware (hfxo-count 4e494589)" },
+  stock: { zip: "firmware/stock-v2.3.0-ultra-dfu-app.zip", name: "stock v2.3.0" },
+};
+let lib = null, flash = null;
+
+async function loadLib() {
+  if (!lib) {
+    const [core, ws, dz] = await Promise.all([
+      import(`${CUJS}/+esm`), import(`${CUJS}/plugin/WebserialAdapter/+esm`), import(`${CUJS}/plugin/DfuZip/+esm`)]);
+    lib = { ...core, WebserialAdapter: ws.default, DfuZip: dz.default };
+  }
+  return lib;
+}
+loadLib().catch((e) => log(`couldn't load the flashing library: ${e.message}`));
+
+async function connectTo(ultra, port) {
+  if (!port) return await ultra.connect();
+  navigator.serial.requestPort = async () => port;
+  try { await ultra.connect(); } finally { delete navigator.serial.requestPort; }
+}
+
+async function findBootloader(timeoutS = 10) {
+  for (const end = nowS() + timeoutS; nowS() < end; await sleep(0.5)) {
+    for (const p of await navigator.serial.getPorts()) {
+      const i = p.getInfo();
+      if (i.usbVendorId === DFU_USB.usbVendorId && i.usbProductId === DFU_USB.usbProductId) return p;
+    }
+  }
+  return null;
+}
+
+function setFlashing(busy, msg) {
+  $("flashTest").disabled = $("flashStock").disabled = busy;
+  $("connect").disabled = busy;
+  if (msg !== undefined) $("flashinfo").textContent = msg;
+}
+
+async function flashStart(which) {
+  if (!("serial" in navigator)) { log("This browser has no Web Serial. Use Chrome or Edge on a desktop."); return; }
+  if (!$("abort").disabled) { log("finish or abort the run before flashing"); return; }
+  const fw = FIRMWARE[which];
+  if (!confirm(`Flash ${fw.name} to the CU? This replaces its firmware. Keep it plugged in until it's done.`)) return;
+  setFlashing(true, cu ? "starting…" : "pick the CU…");
+  try {
+    const L = await loadLib();
+    const known = cu?.port ?? null;              // already connected above: reuse that port, no picker
+    await cu?.close(); cu = null; $("start").disabled = true; $("devinfo").textContent = "Not connected";
+    const ultra = new L.ChameleonUltra();
+    await ultra.use(new L.WebserialAdapter());
+    await connectTo(ultra, known);               // with no known port, the picker needs this click
+    const ab = await (await fetch(fw.zip)).arrayBuffer();
+    const zip = new L.DfuZip(L.Buffer.fromView(new Uint8Array(ab)));
+    const image = await zip.getAppImage();
+    if (!image) throw new Error(`${fw.zip} has no application image`);
+    flash = { ultra, image, fw };
+    if (ultra.isDfu()) return await flashWrite();
+    if ((await ultra.cmdGetDeviceModel()) !== L.DeviceModel.ULTRA) throw new Error("this firmware is for the Chameleon Ultra, not the Lite");
+    log(`flash: CU on ${await ultra.cmdGetGitVersion()}, rebooting it into the bootloader`);
+    await ultra.cmdDfuEnter();
+    setFlashing(true, "waiting for the bootloader…");
+    const dfuPort = await findBootloader();
+    if (dfuPort) {
+      await connectTo(ultra, dfuPort);
+      return await flashWrite();
+    }
+    $("flashDfu").hidden = false;
+    setFlashing(true, "the CU restarted in its bootloader: allow it once (it may look the same as the CU in the list)");
+  } catch (e) {
+    log(`flash failed: ${e.message}`);
+    setFlashing(false, "flash failed: see the log");
+    flash = null;
+  }
+}
+
+async function flashWrite() {
+  const { ultra, image, fw } = flash;
+  log(`flash: writing ${fw.name}, ${image.body.length} bytes`);
+  const onProgress = (p) => { if (p.type === 2) $("flashinfo").textContent = `writing ${Math.floor((100 * p.offset) / p.size)} %`; };
+  ultra.emitter.on("progress", onProgress);
+  try {
+    await ultra.dfuUpdateImage(image);
+  } finally { ultra.emitter.removeListener("progress", onProgress); }
+  log(`flash: done; the CU restarts on ${fw.name}. Connect it again to check.`);
+  setFlashing(false, `flashed ${fw.name}`);
+  flash = null;
+}
+
+$("flashTest").onclick = () => flashStart("test");
+$("flashStock").onclick = () => flashStart("stock");
+$("flashDfu").onclick = async () => {
+  $("flashDfu").hidden = true;
+  try {
+    await flash.ultra.connect();
+    if (!flash.ultra.isDfu()) throw new Error("that port is the CU itself, not its bootloader: try again");
+    await flashWrite();
+  } catch (e) {
+    log(`flash failed: ${e.message}`);
+    if (flash) { $("flashDfu").hidden = false; setFlashing(true, "select the bootloader port to try again"); }
+    else setFlashing(false, "flash failed: see the log");
+  }
+};
+
+// ---------------------------------------------------------------- the run
+
+let run = null;
+
+async function refSample(phase) {
+  const tb = nowS();
+  const r = await fetch(REF_URL, { cache: "no-store" });
+  const body = await r.text();
+  const ta = nowS();
+  const srv = Number(body);
+  if (!r.ok || !isFinite(srv)) throw new Error(`time server returned ${r.status} "${body.slice(0, 40)}"`);
+  const s = { tb, ta, srv, phase };
+  run.ref.push(s);
+  return s;
+}
+
+async function burst(phase, n) {
+  $("phase").textContent = `${phase} burst`;
+  log(`${phase} burst: ${n} time-server requests`);
+  const out = [];
+  await fetch(REF_URL, { cache: "no-store" }).then((r) => r.text()).catch(() => {});   // warm the connection (TLS); not counted
+  for (let i = 0; i < n && !run.aborted; i++) {
+    const t = nowS();
+    try { out.push(await refSample(phase)); } catch (e) { log(`  request failed: ${e.message}`); }
+    update();
+    await sleep(BURST_GAP - (nowS() - t));
+  }
+  const rtts = out.map(H.sampleRtt).sort((a, b) => a - b);
+  if (rtts.length) log(`  ${out.length} samples, round trip fastest ${(rtts[0] * 1e3).toFixed(1)} ms, median ${(rtts[rtts.length >> 1] * 1e3).toFixed(1)} ms`);
+  return out;
+}
+
+async function cuLoop() {
+  while (!run.stopCu) {
+    const t = nowS();
+    const p = await run.dev.hfxo(H.READ);
+    if (!p.running) throw new Error("counter not running (CU reset?)");
+    if (p.lapses) throw new Error(`HFXO lapsed ${p.lapses}x: the count rate is invalid, re-run with no LF activity`);
+    run.cu.push({ ...p, sub: H.READ });
+    run.t.push((p.tb + p.ta) / 2); run.c.push(p.ticks);
+    update();
+    await sleep(CU_INTERVAL - (nowS() - t));
+  }
+}
+
+async function start() {
+  const dev = cu;
+  const minutes = Number($("minutes").value), n = Math.max(20, Number($("burst").value) | 0);
+  run = { id: new Date().toISOString(), fw: await dev.version(), minutes, burstN: n, dev,
+    ref: [], cu: [], t: [], c: [], probes: [], hidden: [], startBurst: [], endBurst: [], t0: nowS() };
+  setButtons(true);
+  ["result", "uncorr", "host", "rms", "bounds", "prov"].forEach((id) => ($(id).textContent = "–"));
+  $("result").className = "big";
+  log(`run ${run.id}: ${minutes} min, bursts of ${n}, firmware ${run.fw}`);
+  try { run.wake = await navigator.wakeLock?.request("screen"); } catch { log("no screen wake lock: keep the computer awake yourself"); }
+  const timer = setInterval(update, 1000);
+  try {
+    const p0 = await dev.hfxo(H.START);
+    run.cu.push({ ...p0, sub: H.START });
+    run.t.push((p0.tb + p0.ta) / 2); run.c.push(p0.ticks);
+    const cuDone = cuLoop().catch((e) => { run.cuError = e; run.aborted = true; });
+
+    // bursts are centred on 0, the halfway point and the end: each starts half a burst early
+    const bt = n * (BURST_GAP + 0.04);
+    const probesUntil = async (t) => {
+      while (!run.aborted && !run.finishNow && nowS() < t) {
+        $("phase").textContent = "measuring";
+        const tp = nowS();
+        const probe = [];
+        for (let i = 0; i < PROBE_N; i++) { try { probe.push(await refSample("probe")); } catch {} await sleep(BURST_GAP); }
+        if (probe.length) run.probes.push(probe);
+        provisional();
+        while (!run.aborted && !run.finishNow && nowS() < Math.min(t, tp + PROBE_EVERY)) await sleep(1);
+      }
+    };
+    run.startBurst = await burst("start", n);
+    await probesUntil(run.t0 + minutes * 30 - bt / 2);
+    if (!run.aborted && !run.finishNow) run.midBurst = await burst("mid", n);
+    await probesUntil(run.t0 + minutes * 60 - bt);
+    if (!run.aborted) run.endBurst = await burst("end", n);
+    run.stopCu = true;
+    await cuDone;
+    if (run.cuError) throw run.cuError;
+    const pe = await dev.hfxo(H.STOP);
+    run.cu.push({ ...pe, sub: H.STOP });
+    if (run.aborted) { log("aborted"); $("phase").textContent = "aborted"; }
+    else finalResult();
+  } catch (e) {
+    log(`run stopped: ${e.message}`);
+    $("phase").textContent = "failed";
+    try { await dev.hfxo(H.STOP); } catch {}
+  } finally {
+    clearInterval(timer);
+    run.wake?.release().catch(() => {});
+    setButtons(false);
+    update();
+  }
+}
+
+function provisional() {
+  if (run.t.length < 10 || !run.probes.length) return;
+  const ref = H.refFit([run.startBurst, ...run.probes.map((p) => H.fastest(p, 0, 1))]);
+  if (!ref) return;
+  const r = H.combine(H.rateFit(run.t, run.c), ref);
+  $("prov").textContent = `${fmt(r.ppm)} ppm`;
+  draw(ref);
+}
+
+function finalResult() {
+  const cuFit = H.rateFit(run.t, run.c);
+  const ref = H.refFit([run.startBurst, run.endBurst]);
+  if (!ref) { log("not enough time-server samples to fit"); return; }
+  const r = H.combine(cuFit, ref);
+  const hc = run.midBurst ? H.halvesCheck(run.startBurst, run.midBurst, run.endBurst) : null;
+  const bc = H.boundCheck(ref, run.ref);
+  const span = (ref.span / 60).toFixed(1);
+  run.result = { ...r, cu: cuFit, ref, halves: hc, bounds: bc, hidden: run.hidden };
+  $("phase").textContent = "done";
+  $("result").textContent = `${fmt(r.ppm)} ppm ± ${r.sig.toFixed(2)}`;
+  $("resultnote").textContent = `Crystal offset against time.akamai.com, ${span} min between bursts, ${cuFit.n} CU reads. ` +
+    "The ± is the fits' scatter. A change in the network path mid-run adds error it can't see; the halves check bounds that.";
+  $("uncorr").textContent = `${fmt(r.uncorrected)} ppm`;
+  $("host").textContent = `${fmt(-r.hostPpm)} ppm`;
+  $("rms").textContent = `${(cuFit.rmsUs / 1000).toFixed(2)} ms`;
+  // macOS's monotonic clock stops while the computer sleeps and the CU keeps counting: the reads then sit on two
+  // lines, not one. USB jitter is ~1 ms rms, so 20 ms rms is unmistakable.
+  if (cuFit.rmsUs > 20000) {
+    log(`⚠ CU reads scatter ${(cuFit.rmsUs / 1000).toFixed(0)} ms rms around the fit: did the computer sleep? Result rejected.`);
+    $("result").textContent = "rejected"; $("result").className = "big bad";
+    $("resultnote").textContent = "The CU reads don't lie on one line (sleep, or a stalled tab). Re-run with the computer awake.";
+    return;
+  }
+  const bad = (hc && !hc.ok) || bc.violations > 0;
+  $("bounds").innerHTML = !hc ? `<span class="warn">no halfway burst (finished early): path changes unchecked</span>`
+    : !hc.ok ? `<span class="bad">halves disagree by ${hc.diff.toFixed(2)} ppm (limit ${(2 * hc.limit).toFixed(2)}): the path changed</span>`
+    : bc.violations ? `<span class="bad">${bc.violations} samples off the line by up to ${bc.worstMs.toFixed(1)} ms</span>`
+    : `<span class="ok">halves agree (${fmt(hc.diff)} ppm); a path change biasing this by more than ~${hc.limit.toFixed(1)} ppm would show</span>`;
+  $("result").className = "big " + (bad ? "bad" : !hc || run.hidden.length ? "warn" : "ok");
+  log(`RESULT ${fmt(r.ppm, 3)} ppm ± ${r.sig.toFixed(3)} (uncorrected ${fmt(r.uncorrected, 3)}, host clock ${fmt(-r.hostPpm, 3)} ppm vs server)`);
+  log(`  ref fit: ${ref.n} samples, rms ${ref.rmsMs.toFixed(2)} ms; CU fit rms ${(cuFit.rmsUs / 1000).toFixed(2)} ms, dropped ${cuFit.dropped}`);
+  if (hc) log(`  halves: host clock ${fmt(hc.first, 3)} then ${fmt(hc.second, 3)} ppm, diff ${fmt(hc.diff, 3)} ± ${hc.sig.toFixed(3)}: ${hc.ok ? "ok" : "PATH CHANGED"}`);
+  log(`  bound check: ${bc.violations}/${bc.of} samples violate (worst ${bc.worstMs.toFixed(2)} ms)`);
+  if (bad) log("  ⚠ the path to the time server changed during the run: treat this result as suspect and re-run");
+  if (run.hidden.length) log(`  ⚠ the tab was hidden ${run.hidden.length}x during the run; check the CU read count looks right`);
+  draw(ref);
+}
+
+function update() {
+  if (!run) return;
+  $("elapsed").textContent = `${((nowS() - run.t0) / 60).toFixed(1)} / ${run.minutes} min`;
+  $("reads").textContent = String(run.cu.length);
+  $("refn").textContent = String(run.ref.length);
+  const rt = run.ref.map(H.sampleRtt);
+  if (rt.length) $("minrtt").textContent = `${(Math.min(...rt) * 1e3).toFixed(1)} ms`;
+}
+
+function setButtons(running) {
+  $("start").disabled = running || !cu;
+  $("connect").disabled = running;
+  $("finish").disabled = !running;
+  $("abort").disabled = !running;
+  $("download").disabled = running || !run;
+}
+
+$("start").onclick = start;
+$("finish").onclick = () => { if (run) { run.finishNow = true; log("finishing early: end burst next"); } };
+$("abort").onclick = () => { if (run) { run.aborted = true; run.stopCu = true; } };
+$("download").onclick = () => {
+  const { dev, wake, ...data } = run;
+  const blob = new Blob([JSON.stringify(data, null, 1)], { type: "application/json" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `cu-crystal-${run.id.replace(/[:.]/g, "")}.json`;
+  a.click();
+};
+document.addEventListener("visibilitychange", () => {
+  if (run && !run.result && document.hidden) { run.hidden.push(nowS()); log("tab hidden: timers keep running in a worker, but keep it visible if you can"); }
+});
+
+// ---------------------------------------------------------------- plot
+
+function draw(ref) {
+  const cv = $("plot"), dpr = devicePixelRatio || 1;
+  const W = cv.clientWidth, Hh = cv.clientHeight;
+  cv.width = W * dpr; cv.height = Hh * dpr;
+  const g = cv.getContext("2d");
+  g.scale(dpr, dpr);
+  const css = getComputedStyle(document.documentElement);
+  const col = (v) => css.getPropertyValue(v).trim();
+  const pts = run.ref.map((s) => ({ x: (s.tb + s.ta) / 2 - run.t0, y: (H.sampleOffset(s) - (ref ? H.refOffsetAt(ref, (s.tb + s.ta) / 2) : 0)) * 1e3 }));
+  if (!pts.length) return;
+  const fast = new Set([run.startBurst, run.midBurst ?? [], run.endBurst, ...run.probes].flatMap((b) => H.fastest(b, 0.2, b.length < 10 ? 1 : 5)));
+  const ys = pts.map((p) => p.y).sort((a, b) => a - b);
+  const lo = Math.min(-2, ys[Math.floor(ys.length * 0.02)]), hi = Math.max(2, ys[Math.floor(ys.length * 0.9)]);
+  const xmax = Math.max(run.minutes * 60, ...pts.map((p) => p.x));
+  const L = 44, R = 8, T = 8, B = 22;
+  const X = (x) => L + (x / xmax) * (W - L - R), Y = (y) => T + (1 - (y - lo) / (hi - lo)) * (Hh - T - B);
+  g.font = "11px -apple-system, sans-serif"; g.fillStyle = col("--muted"); g.strokeStyle = col("--line");
+  for (let i = 0; i <= 4; i++) {
+    const y = lo + ((hi - lo) * i) / 4;
+    g.beginPath(); g.moveTo(L, Y(y)); g.lineTo(W - R, Y(y)); g.stroke();
+    g.fillText(`${y.toFixed(1)} ms`, 2, Y(y) + 4);
+  }
+  g.fillText("0", L, Hh - 6); g.fillText(`${(xmax / 60).toFixed(0)} min`, W - R - 36, Hh - 6);
+  run.ref.forEach((s, i) => {
+    const p = pts[i];
+    if (p.y < lo || p.y > hi) return;
+    g.fillStyle = fast.has(s) ? col("--fast") : col("--dot");
+    g.beginPath(); g.arc(X(p.x), Y(p.y), fast.has(s) ? 2.6 : 1.6, 0, 7); g.fill();
+  });
+  if (ref) { g.strokeStyle = col("--text"); g.beginPath(); g.moveTo(L, Y(0)); g.lineTo(W - R, Y(0)); g.stroke(); }
+}
+</script>
+</body>
+</html>

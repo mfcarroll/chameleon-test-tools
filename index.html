@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chameleon Test Tools</title>
+<style>
+  :root { --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc; --accent: #2f6fd6; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #141413; --panel: #1e1e1c; --text: #ecebe6; --muted: #9b9a93; --line: #34332f; --accent: #6ea0f0; }
+  }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p { color: var(--muted); }
+  a { color: var(--accent); }
+  .tool { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 12px 0; text-decoration: none; color: var(--text); }
+  .tool b { color: var(--accent); }
+  .tool span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Chameleon test tools</h1>
+  <p>Tools for testing Chameleon Ultra hardware, each with the test firmware it needs, flashable from the page.
+    Source: <a href="https://github.com/mfcarroll/chameleon-test-tools">mfcarroll/chameleon-test-tools</a>.</p>
+  <a class="tool" href="crystal/"><b>Crystal offset</b>
+    <span>The 32 MHz crystal's offset in ppm, timed against an internet time server over USB. Needs stock v2.3.0 + command 3125.</span></a>
+</main>
+</body>
+</html>
