@@ -115,3 +115,68 @@ export function reqNickLf(slot, name) {
   r[0] = slot; r[1] = SENSE_LF; r.set(b, 2);
   return r;
 }
+
+// ---------------------------------------------------------------- self-trim event log (wide-search test builds)
+// Command 3100 at offset 0xFFFE: what self-trim did, the last 32 events, oldest first. From fsk-selftrim-wide 18a1c939
+// the log is kept while the CU sleeps and each event carries the wake (presentation) it happened in and the time since
+// that wake; older wide builds (0fcc91d9 and before) lose it in sleep and send 16-byte events with no header. 0xFFFC
+// clears it. Builds before the wide search have no log.
+
+export const CMD_EVENT_LOG = 3100;
+export const reqLog = () => Uint8Array.of(0xff, 0xfe, 0, 0);
+export const reqLogClear = () => Uint8Array.of(0xff, 0xfc, 0, 0);
+const EV_KIND = {
+  1: "wide search, capture A", 2: "wide search, capture B", 3: "restored learned reader", 4: "narrow check failed, unlocked",
+  5: "narrow check locked", 6: "trim moved", 7: "field",
+};
+const EV_WHY = { 0: "trim", 1: "near matched", 2: "weak", 3: "self line", 4: "too far", 5: "no peak", 6: "matched" };
+const EV_FAIL = { 1: "invalid", 2: "leak", 3: "outside guard" };
+
+export function parseLog(d) {
+  if (d.length < 2) return null;  // no log in this firmware
+  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
+  const total = v.getUint16(0);
+  let size = 16, at = 2, wake = null;
+  if (d.length >= 5 && d[2] === 20 && (d.length - 5) % 20 === 0) {
+    size = 20; wake = v.getUint16(3); at = 5;
+  } else if ((d.length - 2) % 16 !== 0) {
+    throw new Error(`event log reply of ${d.length} bytes: not a format this page knows`);
+  }
+  const events = [];
+  for (; at + size <= d.length; at += size) {
+    const k = d[at], w = d[at + 1];
+    const e = { kind: k, what: EV_KIND[k] ?? `kind ${k}`, field: v.getUint16(at + 2), trim: v.getInt16(at + 4),
+      ownPpm: v.getInt32(at + 6) / 10, ppm: v.getInt32(at + 10) / 10, snr: v.getInt16(at + 14) / 10 };
+    if (size === 20) { e.wake = v.getUint16(at + 16); e.ms = v.getUint16(at + 18); }
+    if (k === 2) { e.result = EV_WHY[w & 0x7f] ?? w & 0x7f; e.valid = !!(w & 0x80); }
+    else if (k === 4) e.result = EV_FAIL[w] ?? w;
+    else if (k === 7) e.slot = w;
+    events.push(e);
+  }
+  return { total, wake, kept: size === 20, events };
+}
+
+// One line per event, as plain text.
+export function logLine(e) {
+  const t = e.wake != null ? `wake ${e.wake} ${(e.ms / 1000).toFixed(2)} s  ` : "";
+  const f = `field ${e.field}  `;
+  switch (e.kind) {
+    case 7: return `${t}${f}field on slot ${e.slot + 1}, plays trim ${e.trim} (${fmtPpm(e.ownPpm)} ppm)` +
+      (e.ppm ? `, learned reader ${fmtPpm(e.ppm)}` : ", no learned reader");
+    case 1: return `${t}${f}wide search: capture A stored (our line ${fmtPpm(e.ownPpm)})`;
+    case 2: return `${t}${f}wide search: ${e.valid ? "found" : "nothing usable"}, reader ${fmtPpm(e.ppm)} ppm, ` +
+      `${e.result === "trim" ? "" : e.result + ", "}SNR ${e.snr.toFixed(1)} dB`;
+    case 3: return `${t}${f}restored learned reader ${fmtPpm(e.ppm)} ppm (trim ${e.trim})`;
+    case 4: return `${t}${f}narrow check ${e.result}: reader ${fmtPpm(e.ppm)}, our line ${fmtPpm(e.ownPpm)}, SNR ${e.snr.toFixed(1)} dB; unlocked`;
+    case 5: return `${t}${f}narrow check locked: reader ${fmtPpm(e.ppm)}, SNR ${e.snr.toFixed(1)} dB`;
+    case 6: return `${t}${f}trim moved to ${fmtPpm(e.ownPpm)} ppm, following the reader at ${fmtPpm(e.ppm)} (${e.snr} fields)`;
+    default: return `${t}${f}${e.what}: own ${e.ownPpm}, ppm ${e.ppm}, SNR ${e.snr}`;
+  }
+}
+
+export function logReport(l, firmware) {
+  const head = `CU firmware ${firmware}: self-trim event log, ${l.total} events since cleared` +
+    (l.total > l.events.length ? ` (last ${l.events.length} shown)` : "") +
+    (l.kept ? "" : "; this firmware loses the log when the CU sleeps");
+  return [head, ...l.events.map(logLine)].join("\n");
+}

@@ -177,6 +177,25 @@
       </section>
 
       <section>
+        <h2>Self-trim event log</h2>
+        <p class="note">
+          What self-trim did at each presentation: the field arriving, the wide
+          search for the reader, a learned reader restored, checks that locked
+          or failed. The CU keeps the last 32 events while it sleeps, so read
+          them here after a test. Needs a wide-search test build
+          (fsk-selftrim-wide 18a1c939 or later keeps the log through sleep;
+          earlier wide builds lose it when the CU sleeps).
+        </p>
+        <div class="row" style="margin-bottom: 12px">
+          <button id="logRead" disabled>Read event log</button>
+          <button id="logCopy" disabled>Copy event log</button>
+          <button id="logSave" disabled>Download event log</button>
+          <button id="logClear" disabled>Clear event log…</button>
+        </div>
+        <pre id="evlog" class="dim">Connect, then Read event log.</pre>
+      </section>
+
+      <section>
         <h2>Testing at a reader</h2>
         <ol class="note">
           <li>
@@ -195,7 +214,8 @@
           </li>
           <li>
             Back here: Refresh, then Copy report and send it along with your
-            notes. "Fields seen" shows whether the reader's field reached the
+            notes. On a wide-search build, also Read event log and Copy event
+            log. "Fields seen" shows whether the reader's field reached the
             CU. "Reader vs CU" shows the clock difference.
           </li>
         </ol>
@@ -331,7 +351,8 @@
       }
 
       function setConnected(on) {
-        for (const id of ["refresh", "clear", "copy"]) $(id).disabled = !on;
+        for (const id of ["refresh", "clear", "copy", "logRead", "logClear"]) $(id).disabled = !on;
+        if (!on) for (const id of ["logCopy", "logSave"]) $(id).disabled = true;
         if (!on)
           for (const id of ["src", "plan4", "plan6", "apply"])
             $(id).disabled = true;
@@ -391,6 +412,54 @@
         }
         log("\n" + text);
       };
+
+      // ---------------------------------------------------------------- self-trim event log
+
+      let lastLog = null;
+
+      async function readLog() {
+        const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLog());
+        const l = r.status === STATUS_SUCCESS ? X.parseLog(r.data) : null;
+        if (!l) {
+          $("evlog").textContent = "This firmware has no self-trim event log.";
+          $("evlog").className = "dim";
+          lastLog = null;
+        } else {
+          lastLog = l;
+          $("evlog").className = "";
+          $("evlog").textContent = X.logReport(l, fw);
+        }
+        for (const id of ["logCopy", "logSave"]) $(id).disabled = !lastLog;
+        return l;
+      }
+      $("logRead").onclick = () =>
+        run("read the event log", async () => {
+          const l = await readLog();
+          if (l) log(`event log: ${l.total} events since cleared`);
+        });
+      $("logCopy").onclick = async () => {
+        if (!lastLog) return;
+        const text = X.logReport(lastLog, fw);
+        try {
+          await navigator.clipboard.writeText(text);
+          log("event log copied");
+        } catch {
+          log("couldn't copy; it is shown under Self-trim event log");
+        }
+      };
+      $("logSave").onclick = () => {
+        if (!lastLog) return;
+        const t = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        saveJson(`selftrim-events-${t}.json`, { firmware: fw, read: new Date().toISOString(), ...lastLog });
+      };
+      $("logClear").onclick = () =>
+        run("clear the event log", async () => {
+          if (!confirm("Clear the self-trim event log? Slots, modes and learned readers are kept.")) return;
+          const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLogClear());
+          if (r.status !== STATUS_SUCCESS) throw new Error(`3100 returned status 0x${r.status.toString(16)}`);
+          await readLog();
+          log("event log cleared");
+        });
 
       // ---------------------------------------------------------------- test plan: copy a card into slots
 
