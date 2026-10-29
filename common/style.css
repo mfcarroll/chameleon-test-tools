@@ -1,0 +1,257 @@
+/* Shared by every page. Colors are tokens on :root, with a dark theme. */
+
+:root {
+  --bg: #f7f7f5;
+  --panel: #ffffff;
+  --text: #1d1d1b;
+  --muted: #6b6b66;
+  --line: #e2e1dc;
+  --accent: #2f6fd6;
+  --good: #1f8a4c;
+  --warn: #b26b00;
+  --bad: #c0392b;
+  --dot: #9aa3b2;
+  --fast: #2f6fd6;
+  --hl: #eef3fc;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #141413;
+    --panel: #1e1e1c;
+    --text: #ecebe6;
+    --muted: #9b9a93;
+    --line: #34332f;
+    --accent: #6ea0f0;
+    --good: #4cc47f;
+    --warn: #e0a040;
+    --bad: #ef6b5b;
+    --dot: #5d6470;
+    --fast: #6ea0f0;
+    --hl: #232a36;
+  }
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font:
+    15px/1.5 -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    sans-serif;
+}
+main {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 24px 16px 48px;
+}
+h1 {
+  font-size: 22px;
+  margin: 0 0 4px;
+}
+.sub {
+  color: var(--muted);
+  margin: 0 0 20px;
+}
+section {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+h2 {
+  font-size: 15px;
+  margin: 0 0 12px;
+}
+h3 {
+  font-size: 14px;
+  margin: 14px 0 4px;
+}
+.row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 16px;
+  align-items: center;
+}
+label {
+  color: var(--muted);
+  font-size: 13px;
+  display: flex;
+  gap: 6px;
+  align-items: center;
+}
+select,
+input {
+  font: inherit;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: var(--bg);
+  color: var(--text);
+}
+input[type="number"] {
+  width: 90px;
+}
+button {
+  font: inherit;
+  padding: 6px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  cursor: pointer;
+}
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+button:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.stat .k {
+  color: var(--muted);
+  font-size: 12px;
+}
+.stat .v {
+  font-variant-numeric: tabular-nums;
+  font-size: 17px;
+}
+.big {
+  font-size: 34px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+.note {
+  color: var(--muted);
+  font-size: 13px;
+}
+.ok {
+  color: var(--good);
+}
+.warn {
+  color: var(--warn);
+}
+.bad {
+  color: var(--bad);
+}
+canvas {
+  width: 100%;
+  height: 220px;
+  display: block;
+}
+pre {
+  margin: 0;
+  max-height: 220px;
+  overflow: auto;
+  font:
+    12px/1.45 ui-monospace,
+    Menlo,
+    monospace;
+  color: var(--muted);
+  white-space: pre-wrap;
+}
+pre.cmd {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 8px 10px;
+  color: var(--text);
+  max-height: none;
+  overflow-x: auto;
+  white-space: pre;
+}
+code {
+  font:
+    13px ui-monospace,
+    Menlo,
+    monospace;
+}
+ul,
+ol {
+  margin: 6px 0 0;
+  padding-left: 20px;
+}
+a {
+  color: var(--accent);
+}
+a.back {
+  display: inline-block;
+  margin-bottom: 10px;
+  font-size: 13px;
+  text-decoration: none;
+}
+
+
+/* tables (self-trim) */
+.tablewrap {
+  overflow-x: auto;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-variant-numeric: tabular-nums;
+}
+th,
+td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+  white-space: nowrap;
+}
+th {
+  color: var(--muted);
+  font-weight: 500;
+  font-size: 13px;
+}
+tr.active td {
+  background: var(--hl);
+}
+td.dim {
+  color: var(--muted);
+}
+li {
+  margin: 2px 0;
+}
+
+/* home page */
+.home main {
+  max-width: 720px;
+}
+.home h2 {
+  font-size: 16px;
+  margin: 28px 0 0;
+}
+.home p {
+  color: var(--muted);
+}
+.tool {
+  display: block;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin: 12px 0;
+  text-decoration: none;
+  color: var(--text);
+}
+.tool b {
+  color: var(--accent);
+}
+.tool span {
+  display: block;
+  color: var(--muted);
+  font-size: 13px;
+  margin-top: 2px;
+}

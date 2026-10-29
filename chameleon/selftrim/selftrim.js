@@ -102,9 +102,10 @@ export const hex = (b) => [...b].map((x) => x.toString(16).padStart(2, "0")).joi
 export const unhex = (h) => Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
 
 // A backup file holds each slot's LF side only (type, card, enabled, nickname, mode); HF is never touched.
-export const BACKUP_KIND = "chameleon-test-tools/selftrim LF slot backup";
+export const BACKUP_KIND = "rfid-test-tools/chameleon/selftrim LF slot backup";
+const OLD_KINDS = ["chameleon-test-tools/selftrim LF slot backup"];
 export function checkBackup(b) {
-  if (b?.kind !== BACKUP_KIND || b.version !== 1 || !Array.isArray(b.slots) || b.slots.length !== 8)
+  if (!(b?.kind === BACKUP_KIND || OLD_KINDS.includes(b?.kind)) || b.version !== 1 || !Array.isArray(b.slots) || b.slots.length !== 8)
     throw new Error("this isn't a backup file from this page");
   return b;
 }

@@ -1,18 +1,28 @@
-# Chameleon test tools
+# RFID test tools
 
-Browser and command-line tools for testing [Chameleon Ultra](https://github.com/RfidResearchGroup/ChameleonUltra)
-hardware, with the test firmware each one needs. Each tool lives in its own folder with its own README.
+Tools for testing RFID devices in the browser (Chrome or Edge, over USB), with command-line versions. Each tool has
+its own folder and README.
 
-Pages: https://mfcarroll.github.io/chameleon-test-tools/
+Pages: https://mfcarroll.github.io/rfid-test-tools/
 
-| tool | what it measures | firmware |
+## Chameleon Ultra
+
+| tool | what it does | firmware |
 |---|---|---|
-| [`crystal/`](crystal/) | the 32 MHz crystal's offset in ppm, against an internet time server | stock v2.3.0 + command 3125 ([`feat/hfxo-count`](https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count)) |
-| [`selftrim/`](selftrim/) | (experiment) HID Prox, Paradox and ioProx emulation modes to compare at a real reader, and what self-trim learned about it | Paradox PR #489 + self-trim research ([`exp/fsk-selftrim-paradox`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-paradox)) |
+| [`chameleon/crystal/`](chameleon/crystal/) | how fast or slow the 32 MHz crystal runs, measured against internet time | stock v2.3.0 + command 3125 ([`feat/hfxo-count`](https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count)) |
+| [`chameleon/selftrim/`](chameleon/selftrim/) | (experiment) emulates HID Prox, Paradox and ioProx cards matched to a reader's clock; put the same card in slots with and without the experimental modes, and see which ones a reader accepts | Paradox PR #489 + self-trim research ([`exp/fsk-selftrim-paradox`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-paradox)) |
 
-Test firmware is built from branches of [mfcarroll/ChameleonUltra](https://github.com/mfcarroll/ChameleonUltra) and
-committed here as DFU packages, so a page can flash it straight from the browser. Each build also gets a release
-here, tagged `fw-<branch>-<commit>`. Each tool keeps the stock package next to its test firmware for flashing back.
+Each tool needs its own test firmware, available to flash on the page, with stock v2.3.0 for flashing back. The
+firmware is built from branches of [mfcarroll/ChameleonUltra](https://github.com/mfcarroll/ChameleonUltra), and each
+build also has a release here, tagged `fw-<branch>-<commit>`. The pages flash with
+[chameleon-ultra.js](https://github.com/taichunmin/chameleon-ultra.js) (MIT), loaded from jsDelivr.
 
-GPL-3.0, as ChameleonUltra. The pages load [chameleon-ultra.js](https://github.com/taichunmin/chameleon-ultra.js)
-(MIT) from jsDelivr for flashing.
+## Flipper Zero
+
+| tool | what it does | app |
+|---|---|---|
+| [`flipper/crystal/`](flipper/crystal/) | measures the 32 MHz crystal against internet time and saves the correction in the RFID detector app, allowing exact LF reader frequency measurements | RFID detector 1.5 or later (the page can install it on OFW or Momentum) |
+
+`common/` holds what every page shares: the stylesheet, page helpers, and the crystal measurement and its fits.
+
+GPL-3.0.

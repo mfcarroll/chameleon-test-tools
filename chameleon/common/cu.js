@@ -1,6 +1,8 @@
 // Chameleon Ultra over Web Serial: framing, a one-command-at-a-time client, and DFU flashing.
 // No DOM in here; pages pass callbacks for progress.
 
+const nowS = () => (performance.timeOrigin + performance.now()) / 1000;
+
 export const CMD_GET_GIT_VERSION = 1017;
 export const STATUS_SUCCESS = 0x68;
 export const STATUS_INVALID_CMD = 0x67;
@@ -66,21 +68,24 @@ export class SerialCU {
       for (;;) {
         const { value, done } = await this.reader.read();
         if (done) break;
+        const ta = nowS();
         for (const f of this.parser.push(value)) {
           const p = this.pending;
-          if (p && f.cmd === p.cmd) { this.pending = null; clearTimeout(p.timer); p.resolve(f); }
+          if (p && f.cmd === p.cmd) { this.pending = null; clearTimeout(p.timer); p.resolve({ ...f, ta }); }
         }
       }
     } catch (e) { this.pending?.reject(e); this.pending = null; }
   }
+  // The reply, with tb and ta: local times just before sending and when the reply arrived.
   async cmd(cmd, data = new Uint8Array(0), timeoutS = 3) {
     if (this.pending) throw new Error("command already in flight");
     const reply = new Promise((resolve, reject) => {
       this.pending = { cmd, resolve, reject,
         timer: setTimeout(() => { this.pending = null; reject(new Error(`no reply to ${cmd}`)); }, timeoutS * 1000) };
     });
+    const tb = nowS();
     await this.writer.write(makeFrame(cmd, 0, data));
-    return await reply;
+    return { ...(await reply), tb };
   }
   async version() {
     const r = await this.cmd(CMD_GET_GIT_VERSION);

@@ -1,10 +1,10 @@
 # Chameleon Ultra FSK self-trim (experiment)
 
-Experimental firmware for HID Prox, Paradox and ioProx emulation, and a page to set it up and read back what it
-learned. It's for trying at a real reader, where there's no way to measure a read rate: the same card goes into
-several slots, each in a different mode, and they're compared by switching slots.
+Test firmware that lets the CU match its emulated HID Prox, Paradox and ioProx cards to a reader's clock, and a page
+that sets it up and shows what it learned. To try it at a reader, put the same card in several slots with and
+without self-trim, and see which ones the reader accepts.
 
-Live at https://mfcarroll.github.io/chameleon-test-tools/selftrim/ (Chrome or Edge on a desktop, over USB).
+Live at https://mfcarroll.github.io/rfid-test-tools/chameleon/selftrim/ (Chrome or Edge on a computer, over USB).
 
 ## What the modes change
 
@@ -39,26 +39,37 @@ dropping the field is caught again.
   ([#489](https://github.com/RfidResearchGroup/ChameleonUltra/pull/489)) plus fixes for answering a reader that
   wakes the CU (from [#514](https://github.com/RfidResearchGroup/ChameleonUltra/pull/514) and
   [#515](https://github.com/RfidResearchGroup/ChameleonUltra/pull/515)), plus the self-trim research code.
-- `firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for flashing back.
+- `../common/firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for flashing back.
   It has no Paradox support.
 
-Chameleon Ultra only: the Lite has no reader-side antenna driver, which the new drive needs. Flashing keeps slots
-and saved cards. Flashing (either way) clears what self-trim learned; the modes are kept.
+Chameleon Ultra only, not Lite: the Lite has no reader-side antenna driver, which the new drive needs. Flashing
+replaces the firmware; slots and saved cards are kept. Flashing (either way) clears what self-trim learned; the
+modes are kept. Flash stock back when you're done.
 
 ## The page
 
 - **Slots**: each slot's LF card, mode, how many reader fields it has seen, and the reader's clock offset against
   the CU that self-trim learned. "Fields seen" counts a reader's field arriving; one that drops and restores its
-  field quickly (a Proxmark3 running reads back to back) can count once for many reads. The radio button makes a slot active. Copy report gives a plain-text summary
-  for sharing (no card data).
-- **Set up a test**: copies one HID Prox, Paradox or ioProx card into several slots, each with its own mode and an
-  LF nickname naming it (e.g. "Paradox selftrim+x"). Only the LF side of each slot changes.
+  field quickly (a Proxmark3 running reads back to back) can count once for many reads, so treat it as "the reader
+  was seen", not an exact number of attempts. The radio button makes a slot active. Copy report gives a plain-text
+  summary for sharing (no card data).
+- **Set up a test**: copies one HID Prox, Paradox or ioProx card into several slots, each with a different mode and
+  an LF nickname naming it (e.g. "Paradox selftrim+x"), so they can be compared at a reader by switching slots. Only
+  the LF side of each slot changes: an HF card in the same slot is kept.
 - **Backup and restore**: a JSON file with every slot's LF type, card, enabled state, nickname and mode. Setting up
   a test downloads one first. Restore needs the test firmware. Card types this firmware can't read back (Indala)
   are listed but can't be restored from it.
 
 Card data only passes between the CU and the page's memory. It is never shown, logged, stored in the browser or
 sent anywhere; the backup file you download is the only copy outside the CU, so keep it private.
+
+## Testing at a reader
+
+1. Load the card into one slot with your usual app or the CLI, then use *Set up a test* with the recommended plan.
+   Self-trim helps a weak signal, exact bits help a reader that is strict about bit length. Clear results. Unplug.
+2. At the reader: present the CU on one slot several times. Hold it to the reader for at least 2 seconds the first
+   time on each slot. Switch slots with the buttons. Note which slot opened it and how quickly.
+3. Back on the page: Refresh, then Copy report and send it along with your notes.
 
 ## Command 3120
 
@@ -80,5 +91,5 @@ line in mHz, fields averaged). `selftrim.js` parses it.
 |---|---|
 | `index.html` | the page |
 | `selftrim.js` | command 3120 and the slot commands, no DOM |
-| `../common/cu.js` | Web Serial framing, client and DFU flashing |
-| `firmware/` | DFU packages: test firmware and stock v2.3.0 |
+| `../common/cu.js`, `../common/flash-ui.js` | the CU client and flashing, shared with the crystal page |
+| `firmware/` | the test firmware (stock v2.3.0 is in `../common/firmware/`) |

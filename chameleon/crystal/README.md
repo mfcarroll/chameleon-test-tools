@@ -1,11 +1,11 @@
 # Chameleon Ultra crystal offset
 
-Measures how far a Chameleon Ultra's 32 MHz crystal is off its nominal frequency, in ppm, over USB. Two tools,
-same method:
+Measures how fast or slow a Chameleon Ultra's 32 MHz crystal runs, in ppm, against internet time, over USB. Two
+tools, same method:
 
-- **`index.html`**: runs in Chrome or Edge on a desktop, against an HTTPS time server. Can also flash the firmware it
-  needs. Live at https://mfcarroll.github.io/chameleon-test-tools/crystal/
-- **`hfxo_ntp.py`**: command line, against an NTP server. Needs Python 3 and `pyserial`, and outbound UDP port 123.
+- **The page** (`index.html`), in Chrome or Edge on a computer. It can also flash the test firmware it needs. Live at
+  https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/
+- **The command line** (`hfxo_ntp.py`), using NTP. Needs Python 3, `pyserial`, and outbound UDP port 123.
 
 ```
 pip install pyserial
@@ -14,18 +14,20 @@ python3 hfxo_ntp.py /dev/tty.usbmodemXXXX --minutes 30     # COM5 on Windows, /d
 
 ## Firmware
 
-Both need command **3125**, a tick counter for the crystal-driven clock. Stock firmware doesn't have it.
+Both need the test firmware: stock firmware can't count the crystal's ticks. It adds command **3125**, a tick
+counter for the crystal-driven clock.
 
 - `firmware/hfxo-count-4e494589-ultra-dfu-app.zip`: stock v2.3.0 plus command 3125, nothing else. Source:
   [`feat/hfxo-count`](https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count), commit `4e494589`. Reports
   `v2.3.0-5-g4e49458`.
-- `firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for flashing back.
+- `../common/firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for flashing back.
 
-Chameleon Ultra only; there is no Lite package. The page flashes either one over Web Serial using
+Chameleon Ultra only, not Lite. Flashing replaces the firmware; slots and saved cards are kept. Flash stock v2.3.0
+back when you're done. The page flashes either one over Web Serial using
 [chameleon-ultra.js](https://github.com/taichunmin/chameleon-ultra.js): it asks for the CU's port, reboots the CU into
 its bootloader and connects to that. The bootloader is a separate USB device, so the first time, the browser asks to
 allow it too; Chrome remembers it after that. If the CU is already in its bootloader (a flash was interrupted), pick
-it when the page asks for the CU's port and flashing starts straight away. Slots and saved cards are kept. Tested in
+it when the page asks for the CU's port and flashing starts straight away. Tested in
 Chrome on macOS: stock → test → stock, and from the bootloader. The zips also work with any other DFU tool
 (`nrfutil`, nRF Connect for mobile).
 
@@ -35,11 +37,11 @@ crystal was released while counting), u8 running, u8 crystal on now.
 
 ## Use
 
-1. Plug the CU in over USB. Bluetooth adds too much jitter and isn't supported.
-2. Keep it away from readers and run no LF commands during the run. LF code can release the crystal, the counter
-   records that as a lapse, and a run with a lapse is rejected.
-3. Keep the computer awake and on one network for the whole run.
-4. 30 minutes is the default. 15 minutes gives roughly ±0.7 ppm, 30 about ±0.3, 60 about ±0.15.
+1. Plug the CU in by USB, not Bluetooth (too much jitter).
+2. Close anything else using the CU (e.g. CU App or the Python CLI), and keep it away from readers during the run.
+   LF activity can switch the crystal off, the counter records that as a lapse, and a run with a lapse is rejected.
+3. Keep the computer awake and on the same network for the whole run.
+4. 30 minutes is the default. 5 minutes gives roughly ±2 ppm, 15 about ±0.7, 30 about ±0.3, 60 about ±0.15.
 
 A + result means the crystal runs fast.
 
@@ -94,7 +96,9 @@ independent NTP logger to 0.04 ppm. One CU on the test firmware above read +37.4
 | file | |
 |---|---|
 | `index.html` | the page |
-| `hfxo.js` | framing and fits, shared by the page and the self-test |
+| `hfxo.js` | command 3125, and the fits at the CU's tick rate; shared by the page and the self-test |
 | `selftest.mjs` | self-test, no hardware |
 | `hfxo_ntp.py` | the command-line version |
-| `firmware/` | DFU packages: test firmware and stock v2.3.0 |
+| `firmware/` | the test firmware (stock v2.3.0 is in `../common/firmware/`) |
+| `../common/cu.js`, `../common/flash-ui.js` | the CU client and flashing, shared with the self-trim page |
+| `../../common/timerun.js`, `timefit.js` | the measurement and its fits, shared with the Flipper crystal page |

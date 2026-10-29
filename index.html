@@ -1,33 +1,51 @@
 <!doctype html>
 <html lang="en">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Chameleon Test Tools</title>
-<style>
-  :root { --bg: #f7f7f5; --panel: #ffffff; --text: #1d1d1b; --muted: #6b6b66; --line: #e2e1dc; --accent: #2f6fd6; }
-  @media (prefers-color-scheme: dark) {
-    :root:not([data-theme="light"]) { --bg: #141413; --panel: #1e1e1c; --text: #ecebe6; --muted: #9b9a93; --line: #34332f; --accent: #6ea0f0; }
-  }
-  body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
-  main { max-width: 720px; margin: 0 auto; padding: 24px 16px 48px; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  p { color: var(--muted); }
-  a { color: var(--accent); }
-  .tool { display: block; background: var(--panel); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin: 12px 0; text-decoration: none; color: var(--text); }
-  .tool b { color: var(--accent); }
-  .tool span { display: block; color: var(--muted); font-size: 13px; margin-top: 2px; }
-</style>
-</head>
-<body>
-<main>
-  <h1>Chameleon test tools</h1>
-  <p>Tools for testing Chameleon Ultra hardware, each with the test firmware it needs, flashable from the page.
-    Source: <a href="https://github.com/mfcarroll/chameleon-test-tools">mfcarroll/chameleon-test-tools</a>.</p>
-  <a class="tool" href="crystal/"><b>Crystal offset</b>
-    <span>The 32 MHz crystal's offset in ppm, timed against an internet time server over USB. Needs stock v2.3.0 + command 3125.</span></a>
-  <a class="tool" href="selftrim/"><b>FSK self-trim (experiment)</b>
-    <span>Test firmware for HID Prox, Paradox and ioProx emulation: copy a card into several slots with different modes, compare them at a reader, and read back what the CU learned.</span></a>
-</main>
-</body>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>RFID Test Tools</title>
+    <link rel="stylesheet" href="common/style.css" />
+  </head>
+  <body class="home">
+    <main>
+      <h1>RFID test tools</h1>
+      <p>
+        Tools for testing RFID devices in the browser (Chrome or Edge, over
+        USB), with command-line versions. Source:
+        <a href="https://github.com/mfcarroll/rfid-test-tools"
+          >mfcarroll/rfid-test-tools</a
+        >.
+      </p>
+
+      <h2>Chameleon Ultra</h2>
+      <p>
+        Each tool needs its own test firmware, available to flash on the page.
+      </p>
+      <a class="tool" href="chameleon/crystal/"
+        ><b>Crystal offset</b>
+        <span
+          >How fast or slow the 32 MHz crystal runs, measured against internet
+          time.</span
+        ></a
+      >
+      <a class="tool" href="chameleon/selftrim/"
+        ><b>FSK self-trim (experiment)</b>
+        <span
+          >Emulates HID Prox, Paradox and ioProx cards matched to a reader's
+          clock. Put the same card in slots with and without the various
+          experimental modes, and see which ones a reader accepts.</span
+        ></a
+      >
+
+      <h2>Flipper Zero</h2>
+      <a class="tool" href="flipper/crystal/"
+        ><b>Crystal calibration</b>
+        <span
+          >Measures the 32 MHz crystal against internet time and saves the
+          correction in an improved version of the RFID detector app, allowing
+          exact LF reader frequency measurements.</span
+        ></a
+      >
+    </main>
+  </body>
 </html>

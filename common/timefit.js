@@ -1,77 +1,7 @@
-// Chameleon Ultra crystal offset, browser edition: framing for command 3125 and the fits.
-// Shared by index.html and selftest.mjs; no DOM, no Web Serial in here.
-//
-// The method is hfxo_ntp.py's, with two changes forced by the browser:
-//  - the reference is an HTTPS time server (time.akamai.com/?ms, millisecond stamps, CORS open) instead of NTP;
-//  - its samples are concentrated in dense BURSTS at the start and end of the run, because for a straight-line
-//    rate the optimal design puts the points at the ends, and keeping only each burst's fastest round trips
-//    removes most of the jitter. A third burst halfway is the CHECK (halvesCheck below), not fit input.
-// The local clock is performance.timeOrigin + performance.now(): monotonic, never slewed, so a straight line
-// between the bursts can describe it.
+// Fits for timing a device's crystal against a time server: the device's tick rate against this computer's
+// clock, and this computer's clock against the server. Shared by the Chameleon Ultra and Flipper crystal pages.
+// `nominal` is the device's tick rate in Hz.
 
-export const NOMINAL = 16e6;            // command 3125 counts 16 MHz HFCLK ticks with HFXO held
-export const CMD_HFXO_COUNT = 3125;
-export const CMD_GET_GIT_VERSION = 1017;
-export const STATUS_SUCCESS = 0x68;
-export const STATUS_INVALID_CMD = 0x67;
-export const START = 0, READ = 1, STOP = 2;
-export const SOF = 0x11;
-
-// ---------------------------------------------------------------- framing (chameleon_com.py, big-endian)
-// SOF, LRC1, cmd u16, status u16, len u16, LRC2, data, LRC3. Each LRC covers every byte before it.
-
-export function lrc(bytes, end = bytes.length) {
-  let s = 0;
-  for (let i = 0; i < end; i++) s = (s + bytes[i]) & 0xff;
-  return (0x100 - s) & 0xff;
-}
-
-export function makeFrame(cmd, status = 0, data = new Uint8Array(0)) {
-  const f = new Uint8Array(10 + data.length);
-  f[0] = SOF;
-  f[1] = lrc(f, 1);
-  f[2] = cmd >> 8; f[3] = cmd & 0xff;
-  f[4] = status >> 8; f[5] = status & 0xff;
-  f[6] = data.length >> 8; f[7] = data.length & 0xff;
-  f[8] = lrc(f, 8);
-  f.set(data, 9);
-  f[9 + data.length] = lrc(f, 9 + data.length);
-  return f;
-}
-
-// Byte-stream parser; resynchronises on a bad LRC by dropping one byte, as chameleon_com.py does.
-export class FrameParser {
-  constructor() { this.buf = []; }
-  push(chunk) {
-    for (const b of chunk) this.buf.push(b);
-    const out = [];
-    for (;;) {
-      while (this.buf.length && this.buf[0] !== SOF) this.buf.shift();
-      if (this.buf.length < 9) break;
-      const b = this.buf;
-      if (b[1] !== lrc(b, 1) || b[8] !== lrc(b, 8)) { b.shift(); continue; }
-      const len = (b[6] << 8) | b[7];
-      if (b.length < 10 + len) break;
-      if (b[9 + len] !== lrc(b, 9 + len)) { b.shift(); continue; }
-      out.push({ cmd: (b[2] << 8) | b[3], status: (b[4] << 8) | b[5], data: Uint8Array.from(b.slice(9, 9 + len)) });
-      this.buf = b.slice(10 + len);
-    }
-    return out;
-  }
-}
-
-// v1 payload: u64 ticks, u32 overflows, u32 raw, u16 lapses, u8 running, u8 hfxo_now (big-endian).
-export function parseHfxoCount(d) {
-  if (d.length < 20) throw new Error(`3125 reply is ${d.length} bytes, expected 20`);
-  const v = new DataView(d.buffer, d.byteOffset, d.byteLength);
-  return {
-    ticks: Number(v.getBigUint64(0)),   // exact below 2^53: 17.8 years at 16 MHz
-    overflows: v.getUint32(8), raw: v.getUint32(12), lapses: v.getUint16(16),
-    running: !!v.getUint8(18), hfxo: !!v.getUint8(19),
-  };
-}
-
-// ---------------------------------------------------------------- fits
 
 // Least squares y = k x + b; sigK is the slope's 1-sigma from the residual scatter.
 export function linfit(x, y) {
@@ -90,9 +20,9 @@ export function linfit(x, y) {
 
 const median = (a) => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
-// As hfxo_ntp.py: ticks against local mid-bracket time, refit once without reads more than 5 MADs off the
+// Ticks against local mid-bracket time, refit once without reads more than 5 MADs off the
 // line (a USB stall only ever delays a read). Times in seconds.
-export function rateFit(t, ticks, nominal = NOMINAL) {
+export function rateFit(t, ticks, nominal) {
   const x = t.map((v) => v - t[0]), y = ticks.map((v) => v - ticks[0]);
   let f = linfit(x, y);
   let resUs = f.res.map((r) => (r / f.k) * 1e6);
@@ -169,7 +99,7 @@ export function halvesCheck(start, mid, end, nsig = 3) {
 }
 
 // Crystal offset against the reference. Ticks per local second f -> per reference second f / (1 + k).
-export function combine(cu, ref, nominal = NOMINAL) {
+export function combine(cu, ref, nominal) {
   const ppm = (cu.f / (1 + ref.k) / nominal - 1) * 1e6;
   return { ppm, sig: Math.hypot(cu.sig, ref.sigK * 1e6), hostPpm: ref.k * 1e6, uncorrected: cu.ppm };
 }

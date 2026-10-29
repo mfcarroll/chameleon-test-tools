@@ -1,0 +1,26 @@
+[
+ {
+  "fork": "Official",
+  "label": "Official firmware (1.5.1)",
+  "api": [
+   88,
+   2
+  ],
+  "file": "nfc_rfid_detector-official-88.2.fap",
+  "version": "1.5",
+  "source": "d2f5d2d",
+  "sdk": "1.5.1"
+ },
+ {
+  "fork": "Momentum",
+  "label": "Momentum firmware (mntm-012)",
+  "api": [
+   87,
+   1
+  ],
+  "file": "nfc_rfid_detector-momentum-87.1.fap",
+  "version": "1.5",
+  "source": "d2f5d2d",
+  "sdk": "mntm-012"
+ }
+]
