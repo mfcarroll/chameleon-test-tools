@@ -100,6 +100,11 @@ export function parse(d) {
   return r;
 }
 
+// A crystal-controlled reader sits within about 100 ppm of the CU. Further off, its clock is something else (an LC or
+// ceramic oscillator): one real HID reader ran at -4187 ppm. Stock reads such a reader only close in.
+export const FAR_PPM = 300;
+export const farOff = (ppm) => Math.abs(ppm) > FAR_PPM;
+
 // Plain text for pasting into a chat: one line per slot that matters.
 export function report(r, firmware) {
   const lines = [`CU firmware ${firmware}, active slot ${r.active + 1}`];
@@ -107,7 +112,9 @@ export function report(r, firmware) {
     if (!FSK_TYPES.has(s.lfType) && !s.kept && !s.fields) continue;
     let l = `slot ${s.slot + 1}: ${lfName(s.lfType)}, ${presetName(s.preset)}${s.stored === UNSET ? " (default)" : ""}, fields seen ${s.fields}`;
     if (s.kept)
-      l += `, reader ${fmtPpm(s.kept.readerPpm)} ppm vs CU (learned on ${lfName(s.kept.lfType)}, trim ${s.kept.trim})`;
+      l +=
+        `, reader ${fmtPpm(s.kept.readerPpm)} ppm vs CU (learned on ${lfName(s.kept.lfType)}, trim ${s.kept.trim})` +
+        (farOff(s.kept.readerPpm) ? ", far off nominal" : "");
     else if ((s.preset & 3) === 2) l += ", no reader learned";
     lines.push(l);
   }

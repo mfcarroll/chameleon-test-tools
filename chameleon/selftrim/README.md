@@ -17,7 +17,8 @@ Each slot has a mode, saved on the CU:
   That signal runs on the CU's own crystal, and beats against the reader's carrier at the two clocks'
   difference. The beat costs reads and gives wrong IDs.
 - **self-trim** (the default): the new drive, matched to the reader. At the start of each field, the CU measures the
-  reader's carrier against its own crystal and trims its subcarrier by the difference. The CU then restarts each
+  reader's carrier against its own crystal and trims its subcarrier by the difference. It finds readers up to about
+  ±3.5 % off. The CU then restarts each
   burst at a fixed phase to the reader's carrier. The CU keeps what it learns per slot, through sleep. On the same
   Proxmark3 at 21 mm: 30 to 37 of 50 (Paradox), 22 to 36 (HID Prox).
 - **+ exact bits** (with any of the above): stock firmware sends a HID Prox or Paradox `0` bit as 6 periods of fc/8,
@@ -27,18 +28,23 @@ Each slot has a mode, saved on the CU:
 
 The recommended test is four slots: stock, stock + exact bits, self-trim, self-trim + exact bits.
 
+At one real HID Prox reader whose carrier ran 0.42 % slow (−4187 ppm, not crystal controlled), stock read only close
+in and self-trim read at the edge of the field. Flush on a Proxmark3, where the clocks are close, stock reads best. If
+self-trim reads worse than stock at your reader, use stock.
+
 Self-trim has two costs. Each field's first burst (about 0.4 s) is the measurement and carries no ID. While the field
 stays up, the CU measures again every 2 s, and each new measurement costs one more ID-less burst. The repeat catches a
 reader that restarts its carrier without dropping the field.
 
 ## Firmware
 
-- `firmware/fsk-selftrim-paradox-f56e572e-ultra-dfu-app.zip`: built from
-  [`exp/fsk-selftrim-paradox`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-paradox),
-  commit `f56e572e`. Reports `v2.2.0-78-gf56e572`. It's the Paradox pull request
+- `firmware/fsk-selftrim-wide-a843c96c-ultra-dfu-app.zip`: built from
+  [`exp/fsk-selftrim-wide`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-wide),
+  commit `a843c96c`. Reports `v2.2.0-84-ga843c96`. It's the Paradox pull request
   ([#489](https://github.com/RfidResearchGroup/ChameleonUltra/pull/489)) plus fixes for answering a reader that
   wakes the CU (from [#514](https://github.com/RfidResearchGroup/ChameleonUltra/pull/514) and
-  [#515](https://github.com/RfidResearchGroup/ChameleonUltra/pull/515)), plus the self-trim research code.
+  [#515](https://github.com/RfidResearchGroup/ChameleonUltra/pull/515)), plus the self-trim research code. Since the first test build (`f56e572e`), it searches ±3.5 % for the reader instead
+  of ±300 ppm, no longer locks on its own signal, and keeps an event log through sleep.
 - `../common/firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for
   flashing back. It has no Paradox support.
 
@@ -48,32 +54,24 @@ the modes. Flash stock back when you're done.
 
 ## The page
 
-- **Slots**: each slot's LF card, mode, how many reader fields it has seen, and the reader's clock offset against
-  the CU that self-trim learned. "Fields seen" counts a reader's field arriving. A reader that drops and restores
-  its field quickly (a Proxmark3 running reads back to back) can count once for many reads. Treat the count as "the
-  reader was seen", not an exact number of attempts. The radio button makes a slot active. Copy report gives a
-  plain-text summary for sharing (no card data).
-- **Set up a test**: copies one HID Prox, Paradox or ioProx card into several slots, each with a different mode and
-  an LF nickname naming it (e.g. "Paradox selftrim+x"), so they can be compared at a reader by switching slots. Only
-  the LF side of each slot changes, and an HF card in the same slot stays.
-- **Backup and restore**: a JSON file with every slot's LF type, card, enabled state, nickname and mode. Setting up
-  a test downloads one first. Restore needs the test firmware. The file lists card types this firmware can't read
-  back (Indala), but the page can't restore them.
-- **Self-trim event log**: what self-trim did at each presentation: the field arriving, the wide search for the
-  reader, a learned reader restored, checks that locked or failed. The CU keeps the last 32 events while it sleeps. Read them on the page after a test. Needs a wide-search test build (`fsk-selftrim-wide` `18a1c939` or later keeps
-  the log through sleep).
+The page walks through four steps: connect, set up, test at a reader, and results.
+
+- **Set up**: copies one HID Prox, Paradox or ioProx card into four slots, each with a different mode and an LF
+  nickname naming it (e.g. "Paradox selftrim+x"). "Choose the slots and modes" picks other slots or all six modes.
+  Only the LF side of each slot changes, and an HF card in the same slot stays. A backup downloads first.
+- **Test at a reader**: starting clears the CU's earlier results and event log, so the results come from one reader.
+  Test one reader at a time: a self-trim slot learns the reader it meets and starts over at a different one.
+- **Results**: each slot's mode, how many reader fields it saw, and the reader's clock offset against the CU that
+  self-trim learned. A reader more than 300 ppm off is flagged: it isn't crystal controlled. "Fields seen" counts a
+  reader's field arriving, and a reader that drops and restores its field quickly can count once for many reads.
+  The self-trim event log shows what self-trim did at each presentation. Copy report gives both as plain text for
+  sharing (no card data). After connecting, a CU that has already seen a reader goes straight to its results.
+- **Backup and restore**: a JSON file with every slot's LF type, card, enabled state, nickname and mode. Restore
+  needs the test firmware. The file lists card types this firmware can't read back (Indala), but the page can't
+  restore them.
 
 Card data only passes between the CU and the page's memory. The page never shows, logs, stores or sends it. The
 backup file you download is the only copy outside the CU. Keep it private.
-
-## Testing at a reader
-
-1. Load the card into one slot with your usual app or the CLI, then use _Set up a test_ with the recommended plan.
-   Self-trim helps a weak signal, exact bits help a reader that is strict about bit length. Clear results. Unplug.
-2. At the reader: present the CU on one slot several times. Hold the CU to the reader for at least 2 seconds the
-   first time on each slot. Switch slots with the buttons. Note which slot opened it and how quickly.
-3. Back on the page: Refresh, then Copy report and send it along with your notes. On a wide-search build, also
-   Read event log and Copy event log.
 
 ## Command 3120
 
@@ -84,9 +82,16 @@ active slot, default preset, phase constant K, live drive and trim state, the se
 slot: stored preset, preset in use, LF type, fields seen, learned (valid, LF type, trim in steps, the reader's
 line in mHz, fields averaged). `selftrim.js` parses it.
 
+## Command 3100, offset 0xFFFE
+
+The self-trim event log: count, entry size, wake, then the last 32 events, oldest first (field arriving, wide search,
+learned reader restored, narrow check locked or unlocked, trim moved), each with the wake it happened in and the time
+since that wake. Offset `0xFFFC` clears it. The CU keeps the log while it sleeps. A cold power-on clears it.
+
 ## Not tested
 
-- Any real door reader yet. All numbers above are from one Proxmark3.
+- Paradox at a real door reader. One HID Prox reader so far.
+- After a correct lock, the first narrow check can move the trim up to ~35 ppm off; the next field corrects it.
 - Windows and Linux.
 
 ## Files

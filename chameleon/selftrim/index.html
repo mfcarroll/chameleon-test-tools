@@ -7,164 +7,251 @@
     <link rel="stylesheet" href="../../common/style.css?v=f29e3f4b97" />
   </head>
   <body>
-    <main>
+    <main id="app" data-state="connect">
       <a class="back" href="../../">← RFID test tools</a>
       <h1>Chameleon Ultra FSK self-trim (experimental)</h1>
       <p class="sub">
         Test firmware that lets the CU match its emulated HID Prox, Paradox and
-        ioProx cards to a reader's clock. This page sets it up and shows what it
-        learned. To try it at a reader, put the same card in several slots with
-        and without self-trim, and compare.
+        ioProx cards to a reader's clock. Put the same card in several slots
+        with and without self-trim, try them at a reader, and compare.
       </p>
 
-      <section>
-        <h2>Before you start</h2>
+      <ol class="steps" aria-label="Progress">
+        <li id="step-connect"><span>1</span>Connect</li>
+        <li id="step-setup"><span>2</span>Set up</li>
+        <li id="step-test"><span>3</span>Test at a reader</li>
+        <li id="step-results"><span>4</span>Results</li>
+      </ol>
+
+      <section class="flow" aria-live="polite">
+        <div class="only-connect">
+          <h2>Connect your Chameleon Ultra</h2>
+          <p class="note">
+            Plug your CU in to USB, not Bluetooth, and close anything else using
+            it, such as the CU app or the Python CLI. This page needs Chrome or
+            Edge on a computer. Chameleon Ultra only, not Lite.
+          </p>
+          <div class="row gap-top">
+            <button id="connect" class="primary">Connect CU</button>
+            <span id="connectinfo" class="note"></span>
+          </div>
+        </div>
+
+        <div class="only-ready">
+          <div>
+            <div class="ok small">Connected</div>
+            <div class="title">Chameleon Ultra</div>
+            <div class="note" id="fwinfo">Checking the firmware…</div>
+          </div>
+          <div id="setup">
+            <h2 class="gap-top">Set up the slots</h2>
+            <p class="note">
+              Copies one HID Prox, Paradox or ioProx card into four slots:
+              stock, stock + exact bits, self-trim, and self-trim + exact bits.
+              Load the card into any slot with your usual app first. A backup of
+              every slot downloads before anything changes.
+            </p>
+            <div class="row gap-top">
+              <label class="note"
+                >Card from
+                <select id="src" disabled>
+                  <option>connect first</option>
+                </select></label
+              >
+            </div>
+            <details class="options">
+              <summary>Choose the slots and modes</summary>
+              <div class="row gap-top">
+                <button id="plan4">Recommended: 4 slots</button>
+                <button id="plan6">All 6 modes</button>
+              </div>
+              <div class="tablewrap gap-top">
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Use</th>
+                      <th>Slot</th>
+                      <th>Now</th>
+                      <th>Mode</th>
+                    </tr>
+                  </thead>
+                  <tbody id="plan"></tbody>
+                </table>
+              </div>
+              <p class="note">
+                Only the slots' LF side changes: an HF card in the same slot is
+                kept. Each slot gets an LF nickname naming its mode, e.g.
+                "Paradox selftrim+x".
+              </p>
+            </details>
+            <div class="row gap-top">
+              <button id="apply" class="primary" disabled>
+                Back up, copy and set modes
+              </button>
+              <button id="toTest">Start testing</button>
+              <span id="planinfo" class="note"></span>
+            </div>
+            <p class="note gap-top">
+              Start testing clears the CU's earlier results and event log, so
+              the results come from the next reader alone. Slots and modes are
+              kept.
+            </p>
+          </div>
+        </div>
+
+        <div class="only-run">
+          <h2>Test at a reader</h2>
+          <ol class="note">
+            <li>
+              Unplug the CU and take it to the reader. Start on the first test
+              slot.
+            </li>
+            <li>
+              Hold the CU to the reader on each slot, several times. The first
+              time on each slot, hold it for 2 seconds or more: self-trim
+              measures the reader before it sends the card, so its first read
+              is slower.
+            </li>
+            <li>
+              Note for each slot whether it read, how quickly, and how close
+              the CU had to be.
+            </li>
+            <li>
+              Test one reader at a time. A self-trim slot learns the reader it
+              meets and starts over at a different one.
+            </li>
+          </ol>
+          <p class="note gap-top">
+            The CU keeps its results while it sleeps. Back here, connect again
+            and read them.
+          </p>
+          <div class="row gap-top">
+            <button id="readResults" class="primary">Read the results</button>
+            <button id="backToSetup">Back to set up</button>
+            <span id="testinfo" class="note"></span>
+          </div>
+        </div>
+
+        <div class="only-done">
+          <h2>Results</h2>
+          <p class="note" id="live"></p>
+          <div class="tablewrap gap-top">
+            <table>
+              <thead>
+                <tr>
+                  <th>Active</th>
+                  <th>Slot</th>
+                  <th>LF card</th>
+                  <th>Mode</th>
+                  <th>Fields seen</th>
+                  <th>Reader vs CU</th>
+                  <th>Measurements</th>
+                </tr>
+              </thead>
+              <tbody id="slots"></tbody>
+            </table>
+          </div>
+          <p class="note" id="farnote" hidden>
+            ⚠ A reader more than 300 ppm from the CU isn't crystal controlled.
+            Stock reads such a reader only close in. Self-trim should read it
+            further away.
+          </p>
+          <details class="about">
+            <summary>About these columns</summary>
+            <p class="note">
+              <b>Fields seen</b>: how many times the slot detected a reader's
+              field arriving. A reader that switches its field off and on again
+              quickly can count once, so read it as "the reader was seen".
+              <b>Reader vs CU</b>: the clock difference self-trim measured and
+              corrects for. It stays blank until self-trim learns a reader.
+              <b>Measurements</b>: how many fields the learned value is based on.
+              Changing a slot's mode or the active slot here takes effect at
+              once.
+            </p>
+          </details>
+          <h3 class="gap-top">Self-trim event log</h3>
+          <pre id="evlog" class="dim">Not read yet.</pre>
+          <div class="row gap-top">
+            <button id="copy" class="primary">Copy report</button>
+            <button id="saveReport">Download report</button>
+            <button id="nextReader">Test at another reader</button>
+            <button id="newSetup">Set up a new test</button>
+          </div>
+          <p class="note gap-top">
+            Send the report with your notes on which slots read. It holds no
+            card data.
+          </p>
+        </div>
+
+        <div class="not-run aside">
+          <div class="small"><b>Firmware</b></div>
+          <p class="note">
+            The test firmware is the Paradox pull request, fixes for answering a
+            reader that wakes the CU, and the self-trim research (<a
+              href="https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-wide"
+              >source</a
+            >). Flashing keeps your slots and saved cards, and clears what
+            self-trim learned. Stock v2.3.0 has no Paradox support. Flash stock
+            back when you're done.
+          </p>
+          <div class="row gap-top">
+            <button id="flashTest">Flash test firmware</button>
+            <button id="flashStock">Flash stock v2.3.0</button>
+            <button id="flashDfu" class="primary" hidden>
+              Allow the bootloader (first time only)
+            </button>
+            <span id="flashinfo" class="note"></span>
+          </div>
+        </div>
+      </section>
+
+      <details class="fold" id="modes">
+        <summary><h2>What the modes do</h2></summary>
         <ul class="note">
-          <li><b>Chrome or Edge on a computer</b>, with the CU on USB.</li>
           <li>
-            <b>Chameleon Ultra only</b>, not Lite. Close anything else using the
-            CU's port (e.g. CU App or the Python CLI).
+            <b>stock</b>: as stock firmware. The CU switches a load across its
+            coil, as a real tag does. That can't drift against the reader, but
+            the signal is small.
           </li>
           <li>
-            This is experimental firmware. It's based on the Paradox pull
-            request (Paradox read, emulation and cloning), plus the self-trim
-            research, plus fixes for answering a reader that wakes the CU. Flash
-            stock back when you're done.
+            <b>self-trim</b>: the CU also drives its coil, for a stronger
+            signal, and matches that drive to the reader's clock. At the start
+            of each field it measures the reader's carrier and trims to it. It
+            finds readers up to about ±3.5 % off, and keeps what it learned per
+            slot through sleep. Each field's first 0.4 s is the measurement and
+            carries no card.
+          </li>
+          <li>
+            <b>new drive only</b>: the stronger drive without the matching, for
+            comparison. It beats against the reader's clock.
+          </li>
+          <li>
+            <b>+ exact bits</b>: stock firmware sends some HID Prox and Paradox
+            bits 4 % short. A Proxmark3 doesn't mind. A stricter reader might.
+            This makes every bit the standard length on average.
           </li>
         </ul>
-      </section>
-
-      <section>
-        <h2>Firmware</h2>
-        <p class="note" style="margin-top: 0">
-          Test firmware: <span id="fwname"></span> (<a
-            href="https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-paradox"
-            >source, branch <code>exp/fsk-selftrim-paradox</code></a
-          >). Flashing replaces the firmware. Slots and saved cards are kept.
-          Note: Stock v2.3.0 has no Paradox support.
-        </p>
-        <div class="row">
-          <button id="flashTest">Flash test firmware…</button>
-          <button id="flashStock">Flash stock v2.3.0…</button>
-          <button id="flashDfu" class="primary" hidden>
-            Allow the bootloader (first time only)…
-          </button>
-          <span id="flashinfo" class="note"></span>
-        </div>
-      </section>
-
-      <section>
-        <h2>Slots</h2>
-        <div class="row" style="margin-bottom: 12px">
-          <button id="connect" class="primary">Connect CU…</button>
-          <button id="refresh" disabled>Refresh</button>
-          <span id="devinfo" class="note">Not connected</span>
-        </div>
-        <div class="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Active</th>
-                <th>Slot</th>
-                <th>LF card</th>
-                <th>Mode</th>
-                <th>Fields seen</th>
-                <th>Reader vs CU</th>
-                <th>Measurements</th>
-              </tr>
-            </thead>
-            <tbody id="slots">
-              <tr>
-                <td colspan="7" class="dim">Connect to see the slots.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
         <p class="note">
-          The <b>Mode</b> applies to HID Prox, Paradox and ioProx slots, and the
-          CU saves it straight away. <b>stock</b>: as stock firmware.
-          <b>self-trim</b>: the new, stronger modulation drive, matched to the
-          reader's clock (learned per slot). <b>new drive only</b>: the new
-          drive without the matching, for comparison. <b>+ exact bits</b>: HID
-          Prox and Paradox bits at exactly the standard length. Stock firmware
-          makes some bits 4 % short. <b>Fields seen</b>: how many times this
-          slot detected a reader arriving since the last clear. A reader that
-          switches its field off and on again quickly can count once. Treat the
-          count as "the reader was seen", not an exact number of attempts.
-          <b>Reader vs CU</b>: the clock difference self-trim measured and is
-          correcting for. The column stays blank until self-trim has learned a
-          reader. The CU keeps the results while it sleeps. A flat battery or a
-          flash clears them.
+          At one real HID reader whose clock ran 0.42 % slow, stock read only
+          close in and self-trim read at the edge of the field. If self-trim
+          reads worse than stock at your reader, use stock, and send the report:
+          that's useful too.
         </p>
-        <div class="row">
-          <button id="clear" disabled>Clear results…</button>
-          <button id="copy" disabled>Copy report</button>
-          <span id="live" class="note"></span>
-        </div>
-      </section>
+      </details>
 
-      <section>
-        <h2>Set up a test</h2>
-        <p class="note" style="margin-top: 0">
-          Copies one HID Prox, Paradox or ioProx card into several slots, each
-          with a different mode. Compare the slots at a reader by switching
-          between them. The card's data only passes between the CU and this
-          page's memory. The page never shows, logs, stores or sends it.
-        </p>
-        <div class="row" style="margin-bottom: 12px">
-          <label class="note"
-            >Card from
-            <select id="src" disabled>
-              <option>connect first</option>
-            </select></label
-          >
-          <button id="plan4" disabled>Recommended: 4 slots</button>
-          <button id="plan6" disabled>All 6 modes</button>
-        </div>
-        <div class="tablewrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Use</th>
-                <th>Slot</th>
-                <th>Now</th>
-                <th>Mode</th>
-              </tr>
-            </thead>
-            <tbody id="plan">
-              <tr>
-                <td colspan="4" class="dim">Connect to plan a test.</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <div class="row" style="margin-top: 12px">
-          <button id="apply" class="primary" disabled>
-            Back up, copy and set modes…
-          </button>
-          <span id="planinfo" class="note"></span>
-        </div>
+      <details class="fold" id="backupbox">
+        <summary><h2>Backup and restore</h2></summary>
         <p class="note">
-          Only the slots' LF side is changed: an HF card in the same slot is
-          kept. Each slot also gets an LF nickname naming its mode, e.g.
-          "Paradox selftrim+x", so it's easy to tell them apart in other apps.
-        </p>
-      </section>
-
-      <section>
-        <h2>Backup and restore</h2>
-        <p class="note" style="margin-top: 0">
           A backup is a file with every slot's LF side: card type, card data,
-          whether it's enabled, its nickname and its mode. Setting up a test
-          downloads a backup first automatically. Restore puts every slot's LF
-          side back. HF cards are never changed.
+          whether it's enabled, its nickname and its mode. Restore puts every
+          slot's LF side back. HF cards are never changed.
           <b>The file contains your cards' data</b>: keep it somewhere private.
           Card types this firmware can't read (e.g. Indala) are listed in the
           file but can't be restored from it.
         </p>
         <div class="row">
           <button id="backup" disabled>Download backup</button>
-          <button id="restore" disabled>Restore from file…</button>
+          <button id="restore" disabled>Restore from file</button>
           <input
             id="restorefile"
             type="file"
@@ -173,57 +260,34 @@
           />
           <span id="backupinfo" class="note"></span>
         </div>
-      </section>
+      </details>
 
-      <section>
-        <h2>Self-trim event log</h2>
-        <p class="note">
-          What self-trim did at each presentation: the field arriving, the wide
-          search for the reader, a learned reader restored, checks that locked
-          or failed. The CU keeps the last 32 events while it sleeps. Read them
-          here after a test. The log needs a wide-search test build.
-          fsk-selftrim-wide 18a1c939 or later keeps the log through sleep, and
-          earlier wide builds lose it when the CU sleeps.
-        </p>
-        <div class="row" style="margin-bottom: 12px">
-          <button id="logRead" disabled>Read event log</button>
-          <button id="logCopy" disabled>Copy event log</button>
-          <button id="logSave" disabled>Download event log</button>
-          <button id="logClear" disabled>Clear event log…</button>
-        </div>
-        <pre id="evlog" class="dim">Connect, then Read event log.</pre>
-      </section>
-
-      <section>
-        <h2>Testing at a reader</h2>
-        <ol class="note">
+      <details class="fold" id="protocol">
+        <summary><h2>For developers</h2></summary>
+        <ul class="note">
           <li>
-            Load the card into one slot with your usual app or the CLI, then use
-            <b>Set up a test</b> above with the recommended plan: <b>stock</b>,
-            <b>stock + exact bits</b>, <b>self-trim</b> and
-            <b>self-trim + exact bits</b>. Self-trim helps a weak signal, exact
-            bits help a reader that is strict about bit length. Clear results.
-            Unplug.
+            Command 3120 reads and sets each slot's mode, the fields seen and
+            what self-trim learned. <code>0xC1</code> clears the results.
           </li>
           <li>
-            At the reader: present the CU on one slot several times. Hold the CU
-            to the reader for at least 2 seconds the first time on each slot.
-            Switch slots with the buttons. Note which slot opened it and how
-            quickly.
+            Command 3100 at offset <code>0xFFFE</code> reads the self-trim event
+            log: the last 32 events, kept while the CU sleeps. Offset
+            <code>0xFFFC</code> clears it.
           </li>
           <li>
-            Back here: Refresh, then Copy report and send it along with your
-            notes. On a wide-search build, also Read event log and Copy event
-            log. "Fields seen" shows whether the reader's field reached the CU.
-            "Reader vs CU" shows the clock difference.
+            The page's parsing is in
+            <a href="selftrim.js"><code>selftrim.js</code></a
+            >. The card data only passes between the CU and the page's memory.
+            The page never shows, logs, stores or sends it, except in a backup
+            file you download.
           </li>
-        </ol>
-      </section>
+        </ul>
+      </details>
 
-      <section>
-        <h2>Log</h2>
+      <details class="fold" id="logbox">
+        <summary><h2>Log</h2></summary>
         <pre id="log"></pre>
-      </section>
+      </details>
     </main>
 
     <script type="importmap">
@@ -231,7 +295,7 @@
         "imports": {
           "../common/cu.js": "../common/cu.js?v=4ce0814c68",
           "../common/flash-ui.js": "../common/flash-ui.js?v=7b15c30015",
-          "./selftrim.js": "./selftrim.js?v=fe347b7320",
+          "./selftrim.js": "./selftrim.js?v=dd305124b4",
           "../../common/page.js": "../../common/page.js?v=7033bf5948"
         }
       }
@@ -248,8 +312,9 @@
 
       const FIRMWARE = {
         test: {
-          zip: "firmware/fsk-selftrim-paradox-f56e572e-ultra-dfu-app.zip",
-          name: "test firmware (fsk-selftrim-paradox f56e572e)",
+          zip: "firmware/fsk-selftrim-wide-a843c96c-ultra-dfu-app.zip",
+          name: "test firmware (fsk-selftrim-wide a843c96c)",
+          version: "v2.2.0-84-ga843c96",
         },
         stock: {
           zip: "../common/firmware/stock-v2.3.0-ultra-dfu-app.zip",
@@ -257,12 +322,26 @@
         },
       };
 
-      $("fwname").textContent = FIRMWARE.test.name;
-
       let cu = null,
         fw = "",
         last = null,
+        lastLog = null,
+        support = false, // the connected firmware has command 3120
         busy = false;
+
+      // The page shows one step of the flow at a time: connect, ready (set up), run (at the reader) or done (results).
+      function setState(state) {
+        $("app").dataset.state = state;
+        const steps = {
+          connect: ["current", "", "", ""],
+          ready: ["done", "current", "", ""],
+          run: ["done", "done", "current", ""],
+          done: ["done", "done", "done", "current"],
+        }[state];
+        ["step-connect", "step-setup", "step-test", "step-results"].forEach(
+          (id, i) => ($(id).className = steps[i]),
+        );
+      }
 
       async function exp(req) {
         const r = await cu.cmd(X.CMD_EXP_FSK, req);
@@ -278,6 +357,15 @@
         return X.parse(r.data);
       }
 
+      async function ok(cmd, data) {
+        const r = await cu.cmd(cmd, data);
+        if (r.status !== STATUS_SUCCESS)
+          throw new Error(
+            `command ${cmd} returned status 0x${r.status.toString(16)}`,
+          );
+        return r;
+      }
+
       async function run(what, fn) {
         if (busy) return;
         busy = true;
@@ -290,204 +378,76 @@
         }
       }
 
-      function render(r) {
-        last = r;
-        const tb = $("slots");
-        tb.textContent = "";
-        for (const s of r.slots) {
-          const tr = document.createElement("tr");
-          if (s.slot === r.active) tr.className = "active";
-          const td = (text, cls) => {
-            const c = document.createElement("td");
-            c.textContent = text;
-            if (cls) c.className = cls;
-            tr.append(c);
-            return c;
-          };
-          const radio = document.createElement("input");
-          radio.type = "radio";
-          radio.name = "active";
-          radio.checked = s.slot === r.active;
-          radio.title = `Make slot ${s.slot + 1} the active slot`;
-          radio.onchange = () =>
-            run("change the active slot", async () => {
-              await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(s.slot));
-              await ok(X.CMD.SLOT_DATA_CONFIG_SAVE); // kept after a restart, as the CU's buttons do
-              log(`slot ${s.slot + 1} is now active`);
-              await refresh();
-            });
-          td("").append(radio);
-          td(String(s.slot + 1));
-          const fsk = X.FSK_TYPES.has(s.lfType);
-          td(X.lfName(s.lfType), s.lfType ? "" : "dim");
-          const mode = td("");
-          const sel = document.createElement("select");
-          X.CHOICES.forEach((p) =>
-            sel.append(
-              new Option(
-                X.presetName(p) + (p === r.defaultPreset ? " (default)" : ""),
-                p,
-              ),
-            ),
-          );
-          sel.value = String(s.preset);
-          sel.onchange = () =>
-            run("set mode", async () => {
-              render(await exp(X.reqSet(s.slot, Number(sel.value))));
-              log(
-                `slot ${s.slot + 1}: mode ${X.presetName(Number(sel.value))}, saved`,
-              );
-            });
-          mode.append(sel);
-          if (!fsk) mode.className = "dim";
-          td(String(s.fields), s.fields ? "" : "dim");
-          if (s.kept) {
-            td(
-              `${X.fmtPpm(s.kept.readerPpm)} ppm${s.kept.lfType !== s.lfType ? ` (learned as ${X.lfName(s.kept.lfType)})` : ""}`,
-            );
-            td(String(s.kept.fields));
-          } else {
-            td("–", "dim");
-            td("–", "dim");
-          }
-          tb.append(tr);
+      // ---------------------------------------------------------------- connect and firmware
+
+      async function connect() {
+        if (!hasWebSerial()) {
+          $("connectinfo").textContent =
+            "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
+          throw new Error("no Web Serial");
         }
-        const a = r.auto;
-        $("live").textContent =
-          `Active slot ${r.active + 1}: ${a.locked ? "locked to a reader" : "no reader locked"}, ` +
-          `trim ${r.trim.applied} steps, ${a.wides} wide searches, ${a.restores} restored from a slot's learned reader.`;
-        renderPlan();
+        const port = await navigator.serial.requestPort();
+        await cu?.close();
+        cu = new SerialCU();
+        await cu.open(port);
+        fw = await cu.version();
+        log(`connected, firmware ${fw}`);
+        try {
+          last = await exp(X.reqQuery());
+          support = true;
+        } catch (e) {
+          if (!e.noSupport) throw e;
+          support = false;
+          last = null;
+        }
+        const current = fw.includes(FIRMWARE.test.version);
+        $("fwinfo").textContent = !support
+          ? `Firmware ${fw} has no self-trim support. Flash the test firmware below, then connect again.`
+          : current
+            ? `Firmware ${fw}, the current test build.`
+            : `Firmware ${fw}, an older test build. Flash the current one below before testing.`;
+        $("flashTest").className = support && current ? "" : "primary";
+        $("setup").hidden = !support;
+        for (const id of ["backup", "restore"]) $(id).disabled = !support;
       }
 
-      async function refresh() {
-        render(await exp(X.reqQuery()));
-      }
-
-      function setConnected(on) {
-        for (const id of ["refresh", "clear", "copy", "logRead", "logClear"])
-          $(id).disabled = !on;
-        if (!on) for (const id of ["logCopy", "logSave"]) $(id).disabled = true;
-        if (!on)
-          for (const id of ["src", "plan4", "plan6", "apply"])
-            $(id).disabled = true;
-        for (const id of ["backup", "restore"]) $(id).disabled = !on;
-        if (!on) {
-          $("devinfo").textContent = "Not connected";
-          $("live").textContent = "";
-        }
-      }
+      // A CU that has already seen a reader goes straight to its results.
+      const hasResults = (r) => r.slots.some((s) => s.fields || s.kept);
 
       $("connect").onclick = () =>
         run("connect", async () => {
-          if (!hasWebSerial()) return;
-          const port = await navigator.serial.requestPort();
-          await cu?.close();
-          cu = new SerialCU();
-          await cu.open(port);
-          fw = await cu.version();
-          $("devinfo").textContent = `Connected: firmware ${fw}`;
-          setConnected(true);
           try {
-            await refresh();
-            log(`connected, firmware ${fw}`);
+            await connect();
           } catch (e) {
-            if (!e.noSupport) throw e;
-            // connected, but not to the test firmware: only flashing makes sense
-            setConnected(false);
-            $("devinfo").textContent =
-              `Connected: firmware ${fw}, no self-trim support`;
-            $("slots").innerHTML =
-              '<tr><td colspan="7" class="dim">This firmware has no self-trim support. Flash the test firmware above, then connect again.</td></tr>';
-            log(
-              `connected, firmware ${fw}: no self-trim support; flash the test firmware to use this page`,
-            );
+            $("connectinfo").textContent = `Couldn't connect: ${e.message}`;
+            throw e;
+          }
+          if (support && hasResults(last)) await showResults();
+          else {
+            renderPlan();
+            setState("ready");
           }
         });
-      $("refresh").onclick = () => run("refresh", refresh);
-      $("clear").onclick = () =>
-        run("clear", async () => {
-          if (
-            !confirm(
-              "Clear the fields seen and every slot's learned reader? Modes are kept.",
-            )
-          )
-            return;
-          render(await exp(X.reqClear()));
-          log("results cleared");
-        });
-      $("copy").onclick = async () => {
-        if (!last) return;
-        const text = X.report(last, fw);
-        try {
-          await navigator.clipboard.writeText(text);
-          log("report copied");
-        } catch {
-          log("couldn't copy; here it is:");
-        }
-        log("\n" + text);
-      };
 
-      // ---------------------------------------------------------------- self-trim event log
+      bindFlashButtons({
+        firmware: FIRMWARE,
+        port: () => cu?.port ?? null,
+        release: async () => {
+          await cu?.close();
+          cu = null;
+          support = false;
+        },
+        done: (f) => {
+          $("connectinfo").textContent =
+            `Flashed ${f.name}. Connect again to continue.`;
+          setState("connect");
+        },
+      });
 
-      let lastLog = null;
-
-      async function readLog() {
-        const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLog());
-        const l = r.status === STATUS_SUCCESS ? X.parseLog(r.data) : null;
-        if (!l) {
-          $("evlog").textContent = "This firmware has no self-trim event log.";
-          $("evlog").className = "dim";
-          lastLog = null;
-        } else {
-          lastLog = l;
-          $("evlog").className = "";
-          $("evlog").textContent = X.logReport(l, fw);
-        }
-        for (const id of ["logCopy", "logSave"]) $(id).disabled = !lastLog;
-        return l;
-      }
-      $("logRead").onclick = () =>
-        run("read the event log", async () => {
-          const l = await readLog();
-          if (l) log(`event log: ${l.total} events since cleared`);
-        });
-      $("logCopy").onclick = async () => {
-        if (!lastLog) return;
-        const text = X.logReport(lastLog, fw);
-        try {
-          await navigator.clipboard.writeText(text);
-          log("event log copied");
-        } catch {
-          log("couldn't copy; it is shown under Self-trim event log");
-        }
-      };
-      $("logSave").onclick = () => {
-        if (!lastLog) return;
-        const t = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        saveJson(`selftrim-events-${t}.json`, {
-          firmware: fw,
-          read: new Date().toISOString(),
-          ...lastLog,
-        });
-      };
-      $("logClear").onclick = () =>
-        run("clear the event log", async () => {
-          if (
-            !confirm(
-              "Clear the self-trim event log? Slots, modes and learned readers are kept.",
-            )
-          )
-            return;
-          const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLogClear());
-          if (r.status !== STATUS_SUCCESS)
-            throw new Error(`3100 returned status 0x${r.status.toString(16)}`);
-          await readLog();
-          log("event log cleared");
-        });
-
-      // ---------------------------------------------------------------- test plan: copy a card into slots
+      // ---------------------------------------------------------------- set up: copy a card into slots
 
       const plan = new Map(); // slot -> mode, for the slots ticked
+      X.PLANS[4].forEach((mode, i) => plan.set(i, mode));
 
       function renderPlan() {
         const r = last,
@@ -505,7 +465,6 @@
           src.append(new Option("no HID Prox, Paradox or ioProx slot", ""));
         if ([...src.options].some((o) => o.value === prev)) src.value = prev;
         src.disabled = !fsk.length;
-        for (const id of ["plan4", "plan6"]) $(id).disabled = !fsk.length;
         const from = src.value === "" ? null : r.slots[Number(src.value)];
         tb.textContent = "";
         for (const s of r.slots) {
@@ -557,141 +516,6 @@
       $("src").onchange = renderPlan;
       $("plan4").onclick = () => fillPlan(4);
       $("plan6").onclick = () => fillPlan(6);
-
-      async function ok(cmd, data) {
-        const r = await cu.cmd(cmd, data);
-        if (r.status !== STATUS_SUCCESS)
-          throw new Error(
-            `command ${cmd} returned status 0x${r.status.toString(16)}`,
-          );
-        return r;
-      }
-
-      // ---------------------------------------------------------------- backup and restore
-
-      async function readBackup() {
-        const r = await exp(X.reqQuery());
-        const enabled = (await ok(X.CMD.GET_ENABLED_SLOTS)).data;
-        const b = {
-          kind: X.BACKUP_KIND,
-          version: 1,
-          created: new Date().toISOString(),
-          firmware: fw,
-          active: r.active,
-          slots: [],
-        };
-        for (const s of r.slots) {
-          const e = {
-            slot: s.slot,
-            lfType: s.lfType,
-            lfEnabled: !!enabled[s.slot * 2 + 1],
-            preset: s.stored,
-            nick: null,
-            card: null,
-          };
-          const n = await cu.cmd(X.CMD.GET_SLOT_TAG_NICK, X.reqSlotLf(s.slot));
-          if (n.status === STATUS_SUCCESS)
-            e.nick = new TextDecoder().decode(n.data);
-          const io = X.LF_CARD[s.lfType];
-          if (io) {
-            await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(s.slot));
-            e.card = X.hex((await ok(io[0])).data.slice(io[2]));
-          } else if (s.lfType) {
-            e.unreadable = `${X.lfName(s.lfType)}: this firmware can't read this card type back`;
-          }
-          b.slots.push(e);
-        }
-        await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(r.active));
-        return b;
-      }
-
-      const saveFile = (b) =>
-        saveJson(
-          `cu-lf-slots-${b.created.replace(/[:.]/g, "").slice(0, 15)}.json`,
-          b,
-        );
-
-      async function backupNow() {
-        $("backupinfo").textContent = "reading every slot…";
-        const b = await readBackup();
-        saveFile(b);
-        const bad = b.slots.filter((e) => e.unreadable);
-        log(
-          `backup downloaded: ${b.slots.filter((e) => e.card).length} LF cards` +
-            (bad.length
-              ? `; not readable here: ${bad.map((e) => `slot ${e.slot + 1} (${X.lfName(e.lfType)})`).join(", ")}`
-              : ""),
-        );
-        $("backupinfo").textContent = "backup downloaded";
-        return b;
-      }
-
-      $("backup").onclick = () =>
-        run("backup", async () => {
-          await backupNow();
-          await refresh();
-        });
-      $("restore").onclick = () => $("restorefile").click();
-      $("restorefile").onchange = () =>
-        run("restore", async () => {
-          const f = $("restorefile").files[0];
-          $("restorefile").value = "";
-          if (!f) return;
-          const b = X.checkBackup(JSON.parse(await f.text()));
-          const skip = b.slots.filter((e) => e.unreadable);
-          if (
-            !confirm(
-              `Restore every slot's LF side from the backup of ${b.created.slice(0, 16).replace("T", " ")}?` +
-                (skip.length
-                  ? `\n\nThese can't be restored from it and are left as they are now: ${skip.map((e) => `slot ${e.slot + 1}`).join(", ")}.`
-                  : ""),
-            )
-          )
-            return;
-          for (const e of b.slots) {
-            if (e.unreadable) continue;
-            $("backupinfo").textContent = `slot ${e.slot + 1}…`;
-            if (!e.lfType) {
-              await cu.cmd(X.CMD.DELETE_SLOT_SENSE_TYPE, X.reqSlotLf(e.slot)); // the slot had no LF card
-            } else {
-              const io = X.LF_CARD[e.lfType];
-              if (!io)
-                throw new Error(
-                  `slot ${e.slot + 1}: this firmware can't write ${X.lfName(e.lfType)}`,
-                );
-              await ok(
-                X.CMD.SET_SLOT_TAG_TYPE,
-                X.reqSlotType(e.slot, e.lfType),
-              );
-              await ok(
-                X.CMD.SET_SLOT_DATA_DEFAULT,
-                X.reqSlotType(e.slot, e.lfType),
-              );
-              await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(e.slot));
-              let card = X.unhex(e.card);
-              try {
-                await ok(io[1], card);
-              } finally {
-                card.fill(0);
-              }
-              await ok(
-                X.CMD.SET_SLOT_ENABLE,
-                X.reqEnableLf(e.slot, e.lfEnabled),
-              );
-            }
-            if (e.nick)
-              await ok(X.CMD.SET_SLOT_TAG_NICK, X.reqNickLf(e.slot, e.nick));
-            else await cu.cmd(X.CMD.DELETE_SLOT_TAG_NICK, X.reqSlotLf(e.slot));
-            await exp(X.reqSet(e.slot, e.preset));
-          }
-          await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(b.active));
-          await ok(X.CMD.SLOT_DATA_CONFIG_SAVE);
-          log(
-            `restored from the backup of ${b.created}; slot ${b.active + 1} active`,
-          );
-          $("backupinfo").textContent = "restored";
-          await refresh();
-        });
 
       $("apply").onclick = () =>
         run("set up the test", async () => {
@@ -753,26 +577,312 @@
             await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(targets[0][0]));
             await ok(X.CMD.SLOT_DATA_CONFIG_SAVE);
             log(`saved; slot ${targets[0][0] + 1} is active`);
-            $("planinfo").textContent = "done";
+            $("planinfo").textContent = `Done. Slot ${targets[0][0] + 1} is active.`;
           } finally {
             card.fill(0);
             card = null;
           }
-          plan.clear();
-          await refresh();
+          last = await exp(X.reqQuery());
+          renderPlan();
         });
 
-      // ---------------------------------------------------------------- flashing
+      // Clearing first makes the results this reader's alone: a slot keeps the reader it learned last.
+      async function clearAll() {
+        last = await exp(X.reqClear());
+        const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLogClear());
+        if (r.status === STATUS_SUCCESS) log("results and event log cleared");
+        else log("results cleared (this firmware has no event log)");
+      }
 
-      bindFlashButtons({
-        firmware: FIRMWARE,
-        port: () => cu?.port ?? null,
-        release: async () => {
-          await cu?.close();
-          cu = null;
-          setConnected(false);
-        },
-      });
+      $("toTest").onclick = () =>
+        run("start the test", async () => {
+          await clearAll();
+          $("testinfo").textContent = "";
+          setState("run");
+        });
+      $("backToSetup").onclick = () => setState(cu ? "ready" : "connect");
+
+      // ---------------------------------------------------------------- results
+
+      // Back from the reader the CU has usually been unplugged, so this connects again if it needs to.
+      $("readResults").onclick = () =>
+        run("read the results", async () => {
+          try {
+            last = await exp(X.reqQuery());
+          } catch {
+            $("testinfo").textContent = "Choose the CU's port again.";
+            await connect();
+            if (!support) {
+              setState("ready");
+              return;
+            }
+          }
+          await showResults();
+        });
+
+      async function showResults() {
+        last = await exp(X.reqQuery());
+        render(last);
+        await readLog();
+        setState("done");
+      }
+
+      function render(r) {
+        const tb = $("slots");
+        tb.textContent = "";
+        let far = false;
+        for (const s of r.slots) {
+          const tr = document.createElement("tr");
+          if (s.slot === r.active) tr.className = "active";
+          const td = (text, cls) => {
+            const c = document.createElement("td");
+            c.textContent = text;
+            if (cls) c.className = cls;
+            tr.append(c);
+            return c;
+          };
+          const radio = document.createElement("input");
+          radio.type = "radio";
+          radio.name = "active";
+          radio.checked = s.slot === r.active;
+          radio.title = `Make slot ${s.slot + 1} the active slot`;
+          radio.onchange = () =>
+            run("change the active slot", async () => {
+              await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(s.slot));
+              await ok(X.CMD.SLOT_DATA_CONFIG_SAVE); // kept after a restart, as the CU's buttons do
+              log(`slot ${s.slot + 1} is now active`);
+              render((last = await exp(X.reqQuery())));
+            });
+          td("").append(radio);
+          td(String(s.slot + 1));
+          const fsk = X.FSK_TYPES.has(s.lfType);
+          td(X.lfName(s.lfType), s.lfType ? "" : "dim");
+          const mode = td("");
+          const sel = document.createElement("select");
+          X.CHOICES.forEach((p) =>
+            sel.append(
+              new Option(
+                X.presetName(p) + (p === r.defaultPreset ? " (default)" : ""),
+                p,
+              ),
+            ),
+          );
+          sel.value = String(s.preset);
+          sel.onchange = () =>
+            run("set mode", async () => {
+              render((last = await exp(X.reqSet(s.slot, Number(sel.value)))));
+              log(
+                `slot ${s.slot + 1}: mode ${X.presetName(Number(sel.value))}, saved`,
+              );
+            });
+          mode.append(sel);
+          if (!fsk) mode.className = "dim";
+          td(String(s.fields), s.fields ? "" : "dim");
+          if (s.kept) {
+            const f = X.farOff(s.kept.readerPpm);
+            far ||= f;
+            td(
+              `${X.fmtPpm(s.kept.readerPpm)} ppm${f ? " ⚠" : ""}${s.kept.lfType !== s.lfType ? ` (learned as ${X.lfName(s.kept.lfType)})` : ""}`,
+              f ? "warn" : "",
+            );
+            td(String(s.kept.fields));
+          } else {
+            td("–", "dim");
+            td("–", "dim");
+          }
+          tb.append(tr);
+        }
+        $("farnote").hidden = !far;
+        const a = r.auto;
+        $("live").textContent =
+          `Firmware ${fw}. Active slot ${r.active + 1}: ${a.locked ? "locked to a reader" : "no reader locked"}, ` +
+          `${a.wides} wide searches, ${a.restores} learned readers restored.`;
+      }
+
+      async function readLog() {
+        const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLog());
+        const l = r.status === STATUS_SUCCESS ? X.parseLog(r.data) : null;
+        lastLog = l;
+        $("evlog").className = l ? "" : "dim";
+        $("evlog").textContent = l
+          ? X.logReport(l, fw)
+          : "This firmware has no self-trim event log, or the log is empty.";
+        return l;
+      }
+
+      const fullReport = () =>
+        X.report(last, fw) +
+        (lastLog ? "\n\n" + X.logReport(lastLog, fw) : "");
+
+      $("copy").onclick = async () => {
+        if (!last) return;
+        const text = fullReport();
+        try {
+          await navigator.clipboard.writeText(text);
+          log("report copied");
+        } catch {
+          log("couldn't copy; here it is:");
+          log("\n" + text);
+        }
+      };
+      $("saveReport").onclick = () => {
+        if (!last) return;
+        const t = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
+        saveJson(`selftrim-report-${t}.json`, {
+          firmware: fw,
+          read: new Date().toISOString(),
+          report: X.report(last, fw),
+          slots: last.slots.map(({ slot, lfType, preset, fields, kept }) => ({
+            slot,
+            lfType,
+            preset,
+            fields,
+            kept,
+          })),
+          eventLog: lastLog,
+        });
+      };
+      $("nextReader").onclick = () =>
+        run("start the next reader", async () => {
+          if (
+            !confirm(
+              "Clear the results and the event log for the next reader? Copy the report first if you need it. Slots and modes are kept.",
+            )
+          )
+            return;
+          await clearAll();
+          setState("run");
+        });
+      $("newSetup").onclick = () => {
+        renderPlan();
+        setState("ready");
+      };
+
+      // ---------------------------------------------------------------- backup and restore
+
+      async function readBackup() {
+        const r = await exp(X.reqQuery());
+        const enabled = (await ok(X.CMD.GET_ENABLED_SLOTS)).data;
+        const b = {
+          kind: X.BACKUP_KIND,
+          version: 1,
+          created: new Date().toISOString(),
+          firmware: fw,
+          active: r.active,
+          slots: [],
+        };
+        for (const s of r.slots) {
+          const e = {
+            slot: s.slot,
+            lfType: s.lfType,
+            lfEnabled: !!enabled[s.slot * 2 + 1],
+            preset: s.stored,
+            nick: null,
+            card: null,
+          };
+          const n = await cu.cmd(X.CMD.GET_SLOT_TAG_NICK, X.reqSlotLf(s.slot));
+          if (n.status === STATUS_SUCCESS)
+            e.nick = new TextDecoder().decode(n.data);
+          const io = X.LF_CARD[s.lfType];
+          if (io) {
+            await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(s.slot));
+            e.card = X.hex((await ok(io[0])).data.slice(io[2]));
+          } else if (s.lfType) {
+            e.unreadable = `${X.lfName(s.lfType)}: this firmware can't read this card type back`;
+          }
+          b.slots.push(e);
+        }
+        await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(r.active));
+        return b;
+      }
+
+      const saveFile = (b) =>
+        saveJson(
+          `cu-lf-slots-${b.created.replace(/[:.]/g, "").slice(0, 15)}.json`,
+          b,
+        );
+
+      async function backupNow() {
+        $("backupinfo").textContent = "reading every slot…";
+        const b = await readBackup();
+        saveFile(b);
+        const bad = b.slots.filter((e) => e.unreadable);
+        log(
+          `backup downloaded: ${b.slots.filter((e) => e.card).length} LF cards` +
+            (bad.length
+              ? `; not readable here: ${bad.map((e) => `slot ${e.slot + 1} (${X.lfName(e.lfType)})`).join(", ")}`
+              : ""),
+        );
+        $("backupinfo").textContent = "backup downloaded";
+        return b;
+      }
+
+      $("backup").onclick = () => run("backup", backupNow);
+      $("restore").onclick = () => $("restorefile").click();
+      $("restorefile").onchange = () =>
+        run("restore", async () => {
+          const f = $("restorefile").files[0];
+          $("restorefile").value = "";
+          if (!f) return;
+          const b = X.checkBackup(JSON.parse(await f.text()));
+          const skip = b.slots.filter((e) => e.unreadable);
+          if (
+            !confirm(
+              `Restore every slot's LF side from the backup of ${b.created.slice(0, 16).replace("T", " ")}?` +
+                (skip.length
+                  ? `\n\nThese can't be restored from it and are left as they are now: ${skip.map((e) => `slot ${e.slot + 1}`).join(", ")}.`
+                  : ""),
+            )
+          )
+            return;
+          for (const e of b.slots) {
+            if (e.unreadable) continue;
+            $("backupinfo").textContent = `slot ${e.slot + 1}…`;
+            if (!e.lfType) {
+              await cu.cmd(X.CMD.DELETE_SLOT_SENSE_TYPE, X.reqSlotLf(e.slot)); // the slot had no LF card
+            } else {
+              const io = X.LF_CARD[e.lfType];
+              if (!io)
+                throw new Error(
+                  `slot ${e.slot + 1}: this firmware can't write ${X.lfName(e.lfType)}`,
+                );
+              await ok(
+                X.CMD.SET_SLOT_TAG_TYPE,
+                X.reqSlotType(e.slot, e.lfType),
+              );
+              await ok(
+                X.CMD.SET_SLOT_DATA_DEFAULT,
+                X.reqSlotType(e.slot, e.lfType),
+              );
+              await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(e.slot));
+              let card = X.unhex(e.card);
+              try {
+                await ok(io[1], card);
+              } finally {
+                card.fill(0);
+              }
+              await ok(
+                X.CMD.SET_SLOT_ENABLE,
+                X.reqEnableLf(e.slot, e.lfEnabled),
+              );
+            }
+            if (e.nick)
+              await ok(X.CMD.SET_SLOT_TAG_NICK, X.reqNickLf(e.slot, e.nick));
+            else await cu.cmd(X.CMD.DELETE_SLOT_TAG_NICK, X.reqSlotLf(e.slot));
+            await exp(X.reqSet(e.slot, e.preset));
+          }
+          await ok(X.CMD.SET_ACTIVE_SLOT, X.reqSlot(b.active));
+          await ok(X.CMD.SLOT_DATA_CONFIG_SAVE);
+          log(
+            `restored from the backup of ${b.created}; slot ${b.active + 1} active`,
+          );
+          $("backupinfo").textContent = "restored";
+          last = await exp(X.reqQuery());
+          if ($("app").dataset.state === "done") render(last);
+          else renderPlan();
+        });
+
+      setState("connect");
     </script>
   </body>
 </html>
