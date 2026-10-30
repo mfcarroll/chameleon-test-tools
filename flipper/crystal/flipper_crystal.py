@@ -3,30 +3,33 @@
 # requires-python = ">=3.8"
 # dependencies = ["pyserial"]
 # ///
-"""Flipper Zero crystal offset over USB, timed against an NTP server, for the RFID detector's LF calibration.
-The command-line twin of https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/ (the QR code in the app).
+"""Measures a Flipper Zero's crystal against internet time (NTP).
 
-    uv run flipper_crystal.py              # or: pipx run flipper_crystal.py (both fetch pyserial themselves)
+The result is saved as the calibration in the RFID detector app (1.5 or later). This is
+the command-line version of https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/
+(the QR code in the app).
+
+    uv run flipper_crystal.py              # or pipx run (both install pyserial)
     python3 flipper_crystal.py             # after: pip install pyserial
     python3 flipper_crystal.py COM5 --minutes 15
 
-The Flipper is found by its USB ID; name the port if more than one is connected.
-
-The script opens the RFID detector app (1.5 or later) on its calibration screen by itself; if another app is open,
-exit it first. The app then answers the `rfid_detector_cal` CLI command: a 64 MHz timer run from the Flipper's
-32 MHz crystal, read every 2 s with each read bracketed by this computer's monotonic clock. The monotonic clock's
-own rate error is measured against NTP over the same window and taken out: one query every 16 s, the fastest half
-by round trip into the fit, the server name resolved once.
-
-The Flipper shows the progress and a running estimate. At the end this prints the crystal offset in ppm (+ means
-the crystal runs fast) and, if the run passed its checks, sends it to the app, which saves it and says so
-(--no-send to only print it). Close qFlipper and anything else using the Flipper's port first. Keep the computer
+Plug the Flipper in by USB and close any other connected apps, e.g. qFlipper. Exit any
+app that's open on the Flipper itself. The script finds the Flipper by its USB ID (name
+the port if more than one is plugged in) and opens the app on its Computer calibration
+screen, which shows the progress. If the run passes its checks, the result (ppm, +
+meaning fast) is saved on the Flipper, or with --no-send only printed. Keep the computer
 awake.
+
+Method: the app's `rfid_detector_cal` command reads a 64 MHz timer run from the crystal,
+every 2 s, each read bracketed by this computer's monotonic clock. That clock's own rate
+error is measured against NTP over the same time and taken out: one query every 16 s,
+the fastest half by round trip, the server name resolved once.
 """
 
 import argparse
 import json
 import math
+import re
 import socket
 import struct
 import sys
@@ -37,13 +40,16 @@ from serial.tools import list_ports
 
 NOMINAL = 64e6  # the app's timer: 64 MHz from the crystal's PLL
 COMMAND = b"rfid_detector_cal\r"
-APP_PATH = "/ext/apps/Tools/nfc_rfid_detector.fap"  # where the app catalog and the page install it
+# where the app catalog and the page install the app
+APP_PATH = "/ext/apps/Tools/nfc_rfid_detector.fap"
 READ_INTERVAL, NTP_INTERVAL = 2.0, 16.0
+SETTLED_SIGMA = 5.0  # ppm: the running estimate is shown once its +- is under this
 NTP_EPOCH = 2208988800  # 1900 -> 1970
 CAL_LIMIT = 100.0  # ppm, as the app's Calibration screen
 
-# Local clock: perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on Windows), put on a Unix-ish
-# scale once so offsets stay small. It is never stepped; its rate error is what the NTP fit measures.
+# Local clock: perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on
+# Windows), put on a Unix-ish scale once to keep offsets small. It is never stepped, and
+# its rate error is what the NTP fit measures.
 _BASE = time.time() - time.perf_counter()
 
 
@@ -57,102 +63,147 @@ FLIPPER_USB = (0x0483, 0x5740)  # the Flipper's USB serial (CDC) ID
 
 
 def find_port():
-    ports = [p for p in list_ports.comports() if (p.vid, p.pid) == FLIPPER_USB]
+    ports = [
+        port for port in list_ports.comports() if (port.vid, port.pid) == FLIPPER_USB
+    ]
     if len(ports) == 1:
         return ports[0].device
     if not ports:
-        raise SystemExit("no Flipper found on USB: plug it in (and close qFlipper), or name its port")
-    names = "\n  ".join(f"{p.device}  {p.description}" for p in ports)
-    raise SystemExit(f"more than one Flipper connected; name one:\n  {names}")
-
+        raise SystemExit(
+            "no Flipper found on USB: plug it in (and close qFlipper), or name its port"
+        )
+    names = "\n  ".join(f"{port.device}  {port.description}" for port in ports)
+    raise SystemExit(f"more than one Flipper connected, name one:\n  {names}")
 
 
 class Flipper:
-    """The app's CLI command: "OK lfcal 64000000 <saved>" on start, then "<count> <pll>" per b'r';
-    "p<elapsed> <total> [<est> <+->]\\r" shows progress (0.1 ppm, no reply); "s<v>\\r" saves a correction (0.1 ppm,
-    replies "SET <v>"); any other byte stops. The 32-bit count wraps every 67 s: unwrapped here."""
+    """The app's CLI command, protocol in README.md.
+
+    It replies "OK lfcal 64000000 <saved>" on start, then "<count> <pll>" to each b"r".
+    "p<elapsed> <total> [<est> <+->]\\r" shows progress (0.1 ppm, no reply).
+    "s<v>\\r" saves a calibration (0.1 ppm) and replies "SET <v>" once saved, else
+    "ERR ...". Any other byte stops it. The 32-bit count wraps every 67 s, and is
+    unwrapped here.
+    """
 
     def __init__(self, port):
-        self.ser = serial.Serial(port, 230400, timeout=2)
+        try:
+            self.ser = serial.Serial(port, 230400, timeout=2)
+        except serial.SerialException as error:
+            raise SystemExit(
+                f"couldn't open {port}: {error.strerror or error}\n"
+                "Something else has the Flipper's port open: close qFlipper, any browser "
+                "tab connected to the Flipper, and other scripts, then run again."
+            ) from None
         time.sleep(0.4)
         self.ser.reset_input_buffer()
         self.last, self.hi, self.open = None, 0, False
 
     def _line(self):
-        ln = self.ser.readline().decode("utf-8", "replace").strip()
-        if not ln:
+        line = self.ser.readline().decode("utf-8", "replace").strip()
+        if not line:
             raise TimeoutError("no reply from the Flipper")
-        if ln == "STOPPED":  # Cancel on the Flipper, or it left Config
+        if line == "STOPPED":  # Cancel on the Flipper, or it left Config
             self.open = False
             raise SystemExit("cancelled on the Flipper: nothing saved")
-        return ln
+        return line
 
     def cli(self, cmd, timeout=5):
-        """One CLI command; its output up to the ">: " prompt, without the echo."""
+        """One CLI command: its output up to the ">: " prompt, without the echo."""
         self.ser.reset_input_buffer()
         self.ser.write(cmd.encode() + b"\r")
         out, end = b"", time.monotonic() + timeout
         while b">: " not in out and time.monotonic() < end:
             out += self.ser.read(max(1, self.ser.in_waiting))
         text = out.decode("utf-8", "replace").split(">: ")[0]
-        return "\n".join(ln.strip() for ln in text.splitlines() if ln.strip() and ln.strip() != cmd)
+        return "\n".join(
+            line.strip()
+            for line in text.splitlines()
+            if line.strip() and line.strip() != cmd
+        )
 
     def open_app(self):
-        """Start the app on its calibration screen (if it is already running, the command itself gets it there)."""
+        """Open the app on its Computer calibration screen. A running app gets there
+        through the command itself.
+        """
         out = self.cli(f"loader open {APP_PATH} cal")
         if out:
-            raise SystemExit(f"Flipper: couldn't open the RFID detector app: {out}\n"
-                             "Exit any app that's open on the Flipper, or open the app yourself: Left for Config, "
-                             "then Calibrate with a computer")
+            raise SystemExit(
+                f"Flipper: couldn't open the RFID detector app: {out}\n"
+                "Exit any app that's open on the Flipper, or open the app yourself: Left for Config, "
+                "then Calibrate with a computer"
+            )
         time.sleep(1.5)
+
+    def running_app(self):
+        """The name of the app open on the Flipper, or None."""
+        match = re.search(r'Application "(.*)" is running', self.cli("loader info"))
+        return match.group(1) if match else None
 
     def start(self):
         for attempt in range(2):
+            # a CR first ends anything half-typed at the shell prompt
+            self.ser.write(b"\r")
+            time.sleep(0.3)
             self.ser.reset_input_buffer()
             self.ser.write(COMMAND)
             end = time.monotonic() + 10
             while time.monotonic() < end:
-                ln = self.ser.readline().decode("utf-8", "replace").strip()
-                if ln.startswith("ERR"):
-                    raise SystemExit(f"Flipper: {ln[4:]}")
-                if "could not find command" in ln:
+                line = self.ser.readline().decode("utf-8", "replace").strip()
+                if line.startswith("ERR"):
+                    raise SystemExit(f"Flipper: {line[4:]}")
+                if "could not find command" in line:
                     if attempt:
-                        raise SystemExit("Flipper: the RFID detector app there is older than 1.5: update it")
-                    self.open_app()
+                        raise SystemExit(
+                            "Flipper: the RFID detector app there is older than 1.5: update it"
+                        )
+                    # the detector already open just needs the command again
+                    if "detector" not in (self.running_app() or "").lower():
+                        self.open_app()
                     break
-                if ln.startswith("OK lfcal"):
+                if line.startswith("OK lfcal"):
                     self.open = True
-                    return int(ln.split()[3]) / 10
+                    return int(line.split()[3]) / 10
             else:
                 raise TimeoutError("the Flipper didn't start the session")
         raise SystemExit("Flipper: couldn't start the calibration session")
 
     def read(self):
-        tb = now()
+        before = now()
         self.ser.write(b"r")
-        ln = self._line()
-        ta = now()
+        line = self._line()
+        after = now()
         try:
-            raw, pll = (int(v) for v in ln.split())
+            raw, pll = (int(field) for field in line.split())
         except ValueError:
-            raise SystemExit(f"Flipper: unexpected reply {ln!r} (Config screen closed?)") from None
+            raise SystemExit(
+                f"Flipper: unexpected reply {line!r} (Config screen closed?)"
+            ) from None
         if self.last is not None and raw < self.last:
             self.hi += 1
         self.last = raw
-        return {"t": (tb + ta) / 2, "ticks": (self.hi << 32) | raw, "pll": bool(pll)}
+        return {
+            "t": (before + after) / 2,
+            "ticks": (self.hi << 32) | raw,
+            "pll": bool(pll),
+        }
 
-    def progress(self, elapsed, total, est=None):
-        msg = f"p{int(elapsed)} {int(total)}"
-        if est:
-            msg += f" {round(est[0] * 10)} {max(1, round(est[1] * 10))}"
-        self.ser.write((msg + "\r").encode())
+    def progress(self, elapsed, total, ppm=None, sigma=None):
+        message = f"p{int(elapsed)} {int(total)}"
+        if ppm is not None:
+            message += f" {round(ppm * 10)} {max(1, round(sigma * 10))}"
+        self.ser.write((message + "\r").encode())
 
-    def send(self, ppm):
-        v = round(ppm * 10)
-        self.ser.write(f"s{v}\r".encode())
-        ln = self._line()
-        if ln != f"SET {v}":
-            raise RuntimeError(f"Flipper didn't take the value: {ln!r}")
+    def send(self, ppm, sigma):
+        value = round(ppm * 10)
+        self.ser.write(f"s{value} {max(1, round(sigma * 10))}\r".encode())
+        self.ser.timeout = 5  # the app replies after saving
+        line = self._line()
+        self.ser.timeout = 2
+        if line.startswith("ERR"):
+            raise SystemExit(f"Flipper didn't save the calibration: {line[4:]}")
+        if line != f"SET {value}":
+            raise RuntimeError(f"Flipper didn't take the value: {line!r}")
 
     def close(self):
         if self.open:
@@ -164,22 +215,30 @@ class Flipper:
 # ---------------------------------------------------------------- NTP
 
 
-def ntp_query(addr, timeout=2.0):
-    """One SNTP query. Returns (local mid time, server - local offset, round trip), all in seconds."""
-    with socket.socket(socket.AF_INET6 if ":" in addr[0] else socket.AF_INET, socket.SOCK_DGRAM) as s:
-        s.settimeout(timeout)
+def ntp_query(address, timeout=2.0):
+    """One SNTP query (RFC 4330, with its timestamps T1 to T4).
+
+    Returns (local mid time, server - local offset, round trip), all in seconds.
+    """
+    family = socket.AF_INET6 if ":" in address[0] else socket.AF_INET
+    with socket.socket(family, socket.SOCK_DGRAM) as sock:
+        sock.settimeout(timeout)
         t1 = now()
-        s.sendto(b"\x23" + 47 * b"\0", addr)  # LI 0, version 4, mode 3 (client)
-        d, _ = s.recvfrom(512)
+        sock.sendto(b"\x23" + 47 * b"\0", address)  # LI 0, version 4, mode 3 (client)
+        packet, _ = sock.recvfrom(512)
         t4 = now()
-    if len(d) < 48 or d[1] == 0:  # stratum 0: kiss-o'-death, e.g. rate limited
-        raise RuntimeError(f"server refused ({d[12:16]!r})")
+    if (
+        len(packet) < 48 or packet[1] == 0
+    ):  # stratum 0: kiss-o'-death, e.g. rate limited
+        raise RuntimeError(f"server refused ({packet[12:16]!r})")
 
-    def ts(i):
-        sec, frac = struct.unpack("!II", d[i : i + 8])
-        return sec - NTP_EPOCH + frac / 2**32
+    def timestamp(field_offset):
+        seconds, fraction = struct.unpack(
+            "!II", packet[field_offset : field_offset + 8]
+        )
+        return seconds - NTP_EPOCH + fraction / 2**32
 
-    t2, t3 = ts(32), ts(40)
+    t2, t3 = timestamp(32), timestamp(40)
     return (t1 + t4) / 2, ((t2 - t1) + (t3 - t4)) / 2, (t4 - t1) - (t3 - t2)
 
 
@@ -187,145 +246,253 @@ def ntp_query(addr, timeout=2.0):
 
 
 def linfit(x, y):
-    n = len(x)
-    mx, my = sum(x) / n, sum(y) / n
-    sxx = sum((v - mx) ** 2 for v in x)
-    k = sum((a - mx) * (b - my) for a, b in zip(x, y)) / sxx
-    b0 = my - k * mx
-    res = [b - (k * a + b0) for a, b in zip(x, y)]
-    sig = math.sqrt(sum(r * r for r in res) / (n - 2) / sxx) if n > 2 else float("nan")
-    return k, b0, res, sig
+    """Least squares y = slope x + intercept.
+
+    Returns (slope, intercept, residuals, sigma of the slope).
+    """
+    count = len(x)
+    mean_x, mean_y = sum(x) / count, sum(y) / count
+    sxx = sum((xi - mean_x) ** 2 for xi in x)
+    slope = sum((xi - mean_x) * (yi - mean_y) for xi, yi in zip(x, y)) / sxx
+    intercept = mean_y - slope * mean_x
+    residuals = [yi - (slope * xi + intercept) for xi, yi in zip(x, y)]
+    if count > 2:
+        slope_sigma = math.sqrt(
+            sum(residual**2 for residual in residuals) / (count - 2) / sxx
+        )
+    else:
+        slope_sigma = float("nan")
+    return slope, intercept, residuals, slope_sigma
 
 
-def median(a):
-    s = sorted(a)
-    m = len(s) // 2
-    return s[m] if len(s) % 2 else (s[m - 1] + s[m]) / 2
+def median(values):
+    ordered = sorted(values)
+    middle = len(ordered) // 2
+    return (
+        ordered[middle]
+        if len(ordered) % 2
+        else (ordered[middle - 1] + ordered[middle]) / 2
+    )
 
 
 def robust_fit(x, y):
-    """Least squares, refit once without points more than 5 MADs off the line. Returns (k, sigma k, kept, n)."""
-    k, _, res, sig = linfit(x, y)
-    med = median(res)
-    mad = median([abs(r - med) for r in res]) or 1e-12
-    keep = [abs(r - med) <= 5 * 1.4826 * mad for r in res]
+    """Least squares, refit once without points more than 5 MADs off the line.
+
+    Returns (slope, sigma of the slope, points kept, points).
+    """
+    slope, _, residuals, slope_sigma = linfit(x, y)
+    center = median(residuals)
+    mad = median([abs(residual - center) for residual in residuals]) or 1e-12
+    keep = [abs(residual - center) <= 5 * 1.4826 * mad for residual in residuals]
     if len(x) >= 4 and 3 <= sum(keep) < len(x):
-        k, _, res, sig = linfit([v for v, ok in zip(x, keep) if ok], [v for v, ok in zip(y, keep) if ok])
-    return k, sig, sum(keep), len(x)
+        kept_x = [xi for xi, kept in zip(x, keep) if kept]
+        kept_y = [yi for yi, kept in zip(y, keep) if kept]
+        slope, _, residuals, slope_sigma = linfit(kept_x, kept_y)
+    return slope, slope_sigma, sum(keep), len(x)
 
 
-def offset(pts, ref_pts):
-    """(ppm, sigma) from the reads and NTP samples so far, the local clock's rate taken out; None if too few."""
-    if len(pts) < 10 or len(ref_pts) < 4:
+def fastest_half(ntp_samples):
+    """The NTP samples with the shorter half of the round trips."""
+    cut = sorted(round_trip for _, _, round_trip in ntp_samples)[len(ntp_samples) // 2]
+    return [sample for sample in ntp_samples if sample[2] <= cut]
+
+
+def crystal_ppm(tick_rate, tick_rate_sigma, clock_drift, clock_drift_sigma):
+    """(ppm, sigma) of the crystal.
+
+    From the Flipper's ticks per local second and the local clock's drift.
+    """
+    ppm = (tick_rate / (1 + clock_drift) / NOMINAL - 1) * 1e6
+    return ppm, math.hypot(tick_rate_sigma / NOMINAL, clock_drift_sigma) * 1e6
+
+
+def quote(value, sigma):
+    """ "+16.2 +- 0.7 ppm": both to the +-'s first significant digit, or its first two when
+    that digit is 1, and never finer than 0.1 ppm (the app's resolution)."""
+    decimals = 1
+    if sigma > 0:
+        exponent = math.floor(math.log10(sigma))
+        decimals = -exponent + (1 if sigma / 10**exponent < 2 else 0)
+        decimals = max(0, min(1, decimals))
+    return f"{value:+.{decimals}f} +- {sigma:.{decimals}f} ppm"
+
+
+def fit_run(reads, ntp_samples):
+    """The crystal from the reads and NTP samples so far, or None if there are too few.
+
+    Returns a dict with:
+    - ppm and sigma
+    - tick_rate: Flipper ticks per local second
+    - rms_us: the reads' scatter, which shows USB stalls and laptop sleep
+    - clock_drift: the local clock against NTP through the fastest half of the queries,
+      + meaning it runs slow; with kept, query_times and query_offsets from that fit
+    - min_round_trip
+    """
+    if len(reads) < 10 or len(ntp_samples) < 4:
         return None
-    x = [t - pts[0][0] for t, _ in pts]
-    y = [c - pts[0][1] for _, c in pts]
-    f, fsig, _, _ = robust_fit(x, y)
-    cut = sorted(r for _, _, r in ref_pts)[len(ref_pts) // 2]
-    fast = [q for q in ref_pts if q[2] <= cut]
+    elapsed = [read_time - reads[0][0] for read_time, _ in reads]
+    ticks = [read_ticks - reads[0][1] for _, read_ticks in reads]
+    tick_rate, tick_rate_sigma, _, _ = robust_fit(elapsed, ticks)
+    residuals = linfit(elapsed, ticks)[2]
+    rms_seconds = math.sqrt(sum(residual**2 for residual in residuals) / len(elapsed))
+    fast = fastest_half(ntp_samples)
     if len(fast) < 3:
         return None
-    k, ksig, _, _ = robust_fit([m - ref_pts[0][0] for m, _, _ in fast], [o for _, o, _ in fast])
-    return (f / (1 + k) / NOMINAL - 1) * 1e6, math.hypot(fsig / NOMINAL, ksig) * 1e6
+    query_times = [mid - ntp_samples[0][0] for mid, _, _ in fast]
+    query_offsets = [offset for _, offset, _ in fast]
+    clock_drift, clock_drift_sigma, kept, _ = robust_fit(query_times, query_offsets)
+    ppm, sigma = crystal_ppm(tick_rate, tick_rate_sigma, clock_drift, clock_drift_sigma)
+    return {
+        "ppm": ppm,
+        "sigma": sigma,
+        "tick_rate": tick_rate,
+        "rms_us": rms_seconds / tick_rate * 1e6,
+        "clock_drift": clock_drift,
+        "kept": kept,
+        "query_times": query_times,
+        "query_offsets": query_offsets,
+        "min_round_trip": min(round_trip for _, _, round_trip in ntp_samples),
+    }
 
 
 def main():
-    ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("port", nargs="?", help="the Flipper's serial port (default: find it by its USB ID)")
-    ap.add_argument("--minutes", type=float, default=30, help="run length (default 30; 15 is ~+-0.5 ppm)")
-    ap.add_argument("--server", default="time.cloudflare.com", help="NTP server (resolved once)")
-    ap.add_argument("--log", help="write every sample to this JSON-lines file")
-    ap.add_argument("--no-send", action="store_true", help="only print the result; don't save it on the Flipper")
-    a = ap.parse_args()
+    parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    parser.add_argument(
+        "port",
+        nargs="?",
+        help="the Flipper's serial port (default: find it by its USB ID)",
+    )
+    parser.add_argument(
+        "--minutes",
+        type=float,
+        default=30,
+        help="run length (default 30; 15 is ~+-0.5 ppm)",
+    )
+    parser.add_argument(
+        "--server", default="time.cloudflare.com", help="NTP server (resolved once)"
+    )
+    parser.add_argument("--log", help="write every sample to this JSON-lines file")
+    parser.add_argument(
+        "--no-send",
+        action="store_true",
+        help="only print the result; don't save it on the Flipper",
+    )
+    args = parser.parse_args()
 
-    info = socket.getaddrinfo(a.server, 123, type=socket.SOCK_DGRAM)[0]
-    addr = info[4][:2]
-    port = a.port or find_port()
-    fl = Flipper(port)
-    log = open(a.log, "w") if a.log else None  # noqa: SIM115 (closed in the finally below)
-    pts, ref_pts = [], []
+    address = socket.getaddrinfo(args.server, 123, type=socket.SOCK_DGRAM)[0][4][:2]
+    port = args.port or find_port()
+    flipper = Flipper(port)
+    log = None
+    if args.log:
+        log = open(args.log, "w")  # noqa: SIM115 (closed in the finally below)
+    reads, ntp_samples = [], []
     try:
-        saved = fl.start()
-        print(f"Flipper on {port}, calibration now {saved:+.1f} ppm; NTP {a.server} ({addr[0]}), {a.minutes:g} min")
-        p = fl.read()
-        t0 = p["t"]
-        end = t0 + a.minutes * 60
-        next_ntp = next_progress = t0
+        saved = flipper.start()
+        print(
+            f"Flipper on {port}, calibration now {saved:+.1f} ppm, NTP {args.server} ({address[0]}), "
+            f"{args.minutes:g} min"
+        )
+        reading = flipper.read()
+        start = reading["t"]
+        end = start + args.minutes * 60
+        next_ntp = start
         while True:
-            t = now()
-            if t >= next_ntp:
+            loop_start = now()
+            if loop_start >= next_ntp:
                 try:
-                    mid, off, rtt = ntp_query(addr)
-                    ref_pts.append((mid, off, rtt))
+                    sample = ntp_query(address)
+                    ntp_samples.append(sample)
                     if log:
-                        log.write(json.dumps({"ntp": [mid, off, rtt]}) + "\n")
-                except (OSError, RuntimeError) as e:
-                    print(f"\n  NTP query failed: {e}")
+                        log.write(json.dumps({"ntp": list(sample)}) + "\n")
+                except (OSError, RuntimeError) as error:
+                    print(f"\n  NTP query failed: {error}")
                 next_ntp += NTP_INTERVAL
-            if not p["pll"]:
-                raise SystemExit("the Flipper's clock left the crystal during the run: rejected, run again")
-            pts.append((p["t"], p["ticks"]))
+            if not reading["pll"]:
+                raise SystemExit(
+                    "the Flipper's clock left the crystal during the run: rejected, run again"
+                )
+            reads.append((reading["t"], reading["ticks"]))
             if log:
-                log.write(json.dumps({"flipper": [p["t"], p["ticks"]]}) + "\n")
-            if p["t"] >= end:
+                log.write(
+                    json.dumps({"flipper": [reading["t"], reading["ticks"]]}) + "\n"
+                )
+            if reading["t"] >= end:
                 break
-            if p["t"] >= next_progress:
-                fl.progress(p["t"] - t0, a.minutes * 60, offset(pts, ref_pts))
-                next_progress += 10
-            done = (p["t"] - t0) / 60
-            print(f"\r  {done:5.1f} / {a.minutes:g} min, {len(pts)} reads, {len(ref_pts)} NTP", end="", flush=True)
-            time.sleep(max(0.0, READ_INTERVAL - (now() - t)))
-            p = fl.read()
+            fit = fit_run(reads, ntp_samples)
+            settled = fit is not None and fit["sigma"] < SETTLED_SIGMA
+            if settled:
+                flipper.progress(
+                    reading["t"] - start, args.minutes * 60, fit["ppm"], fit["sigma"]
+                )
+            else:
+                flipper.progress(reading["t"] - start, args.minutes * 60)
+            done = (reading["t"] - start) / 60
+            status = f"\r  {done:4.1f} / {args.minutes:g} min  "
+            status += quote(fit["ppm"], fit["sigma"]) if settled else "settling"
+            if fit:
+                status += (
+                    f"  computer clock {-fit['clock_drift'] * 1e6:+.1f} ppm"
+                    f"  reads {fit['rms_us'] / 1e3:.1f} ms rms"
+                    f"  NTP round trip {fit['min_round_trip'] * 1e3:.0f} ms"
+                )
+            print(f"{status:<110}", end="", flush=True)
+            time.sleep(max(0.0, READ_INTERVAL - (now() - loop_start)))
+            reading = flipper.read()
         print()
-        if len(pts) < 10 or len(ref_pts) < 12:
+        fit = fit_run(reads, ntp_samples)
+        if fit is None or len(ntp_samples) < 12:
             raise SystemExit("too short to fit")
+        if fit["rms_us"] > 20000:
+            raise SystemExit(
+                f"reads scatter {fit['rms_us'] / 1e3:.0f} ms rms: the computer probably "
+                "slept. Run again."
+            )
 
-        # The Flipper: ticks per local second. Residual scatter in us shows USB stalls (and laptop sleep).
-        x = [t - pts[0][0] for t, _ in pts]
-        y = [c - pts[0][1] for _, c in pts]
-        f, fsig, _, _ = robust_fit(x, y)
-        rms_us = math.sqrt(sum(r * r for r in linfit(x, y)[2]) / len(x)) / f * 1e6
-        if rms_us > 20000:
-            raise SystemExit(f"reads scatter {rms_us / 1e3:.0f} ms rms: the computer probably slept. Run again.")
-
-        # The local clock against NTP: offset(t) = a + k t through the fastest half of the queries; k > 0 means
-        # the local clock runs slow. The halves check fits each half of the run on its own and compares.
-        cut = sorted(r for _, _, r in ref_pts)[len(ref_pts) // 2]
-        fast = [q for q in ref_pts if q[2] <= cut]
-        rx = [m - ref_pts[0][0] for m, _, _ in fast]
-        ry = [o for _, o, _ in fast]
-        k, ksig, kept, _ = robust_fit(rx, ry)
-        half = len(fast) // 2
-        k1, s1, _, _ = robust_fit(rx[: half + 1], ry[: half + 1])
-        k2, s2, _, _ = robust_fit(rx[half:], ry[half:])
-
-        ppm = (f / (1 + k) / NOMINAL - 1) * 1e6
-        sig = math.hypot(fsig / NOMINAL, ksig) * 1e6
-        print(f"crystal offset   {ppm:+.2f} +- {sig:.2f} ppm   (+ = fast)")
-        print(f"  uncorrected    {(f / NOMINAL - 1) * 1e6:+.2f} ppm vs this computer's clock")
-        print(
-            f"  computer clock {-k * 1e6:+.2f} ppm vs NTP (fastest {kept} of {len(ref_pts)} queries, min round trip "
-            f"{min(r for _, _, r in ref_pts) * 1e3:.1f} ms)"
+        # The halves check fits the local clock against NTP over each half of the run on
+        # its own, and compares.
+        query_times, query_offsets = fit["query_times"], fit["query_offsets"]
+        half = len(query_times) // 2
+        first_drift, first_sigma, _, _ = robust_fit(
+            query_times[: half + 1], query_offsets[: half + 1]
         )
-        diff, dsig = (k2 - k1) * 1e6, math.hypot(s1, s2) * 1e6
-        ok = abs(diff) <= 3 * dsig
-        print(
-            f"  halves         computer clock {-k1 * 1e6:+.2f} then {-k2 * 1e6:+.2f} ppm: "
-            f"{'ok' if ok else 'DISAGREE (path to the server changed?): re-run'}"
+        second_drift, second_sigma, _, _ = robust_fit(
+            query_times[half:], query_offsets[half:]
         )
-        print(f"  Flipper reads  {len(pts)}, {rms_us:.0f} us rms")
+
+        ppm, sigma = fit["ppm"], fit["sigma"]
+        print(f"crystal          {quote(ppm, sigma)}   (+ = fast)")
+        print(
+            f"  uncorrected    {(fit['tick_rate'] / NOMINAL - 1) * 1e6:+.1f} ppm "
+            "vs this computer's clock"
+        )
+        print(
+            f"  computer clock {-fit['clock_drift'] * 1e6:+.1f} ppm vs NTP (fastest "
+            f"{fit['kept']} of {len(ntp_samples)} queries, min round trip "
+            f"{fit['min_round_trip'] * 1e3:.1f} ms)"
+        )
+        halves_difference = (second_drift - first_drift) * 1e6
+        halves_sigma = math.hypot(first_sigma, second_sigma) * 1e6
+        halves_agree = abs(halves_difference) <= 3 * halves_sigma
+        print(
+            f"  halves         computer clock {-first_drift * 1e6:+.1f} then "
+            f"{-second_drift * 1e6:+.1f} ppm: "
+            f"{'ok' if halves_agree else 'DISAGREE (path to the server changed?): re-run'}"
+        )
+        print(f"  Flipper reads  {len(reads)}, {fit['rms_us']:.0f} us rms")
 
         if abs(ppm) > CAL_LIMIT:
             print(f"  {ppm:+.1f} ppm is beyond the app's +-{CAL_LIMIT:g}: not saved")
-        elif not ok:
+        elif not halves_agree:
             print("  not saved on the Flipper: the halves check failed. Run again")
-        elif not a.no_send:
-            fl.send(ppm)
-            print(f"  saved on the Flipper: {ppm:+.1f} ppm (it was {saved:+.1f})")
+        elif not args.no_send:
+            flipper.send(ppm, sigma)
+            print(
+                f"  saved on the Flipper: {quote(ppm, sigma)} (it was {saved:+.1f} ppm)"
+            )
     except KeyboardInterrupt:
         print("\n  stopped")
     finally:
-        fl.close()
+        flipper.close()
         if log:
             log.close()
 

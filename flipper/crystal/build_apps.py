@@ -15,6 +15,7 @@ A build loads on firmware of the same fork whose API has the same major and an e
 by those (flipper.js pickBuild). Builds are only a stopgap until the app is in each firmware's own catalog.
 """
 
+import hashlib
 import json
 import os
 import re
@@ -67,8 +68,11 @@ def main():
                     f.write(re.sub(r'name="[^"]*"', f'name="{NAMES[fork]}"', fam, count=1))
             subprocess.run(["ufbt"], cwd=build, env={**os.environ, "UFBT_HOME": home}, check=True, stdout=subprocess.DEVNULL)
             shutil.copyfile(os.path.join(build, "dist", f"{appid}.fap"), os.path.join(APPS, name))
+        # the page recognises an installed build by its MD5 (`storage md5` on the Flipper)
+        with open(os.path.join(APPS, name), "rb") as f:
+            md5 = hashlib.md5(f.read()).hexdigest()
         manifest.append({"fork": fork, "label": f"{fork} firmware ({state.get('version')})", "api": api,
-                         "file": name, "version": version, "source": commit, "sdk": state.get("version")})
+                         "file": name, "version": version, "source": commit, "sdk": state.get("version"), "md5": md5})
     # the script ships with the app (tools/); the page serves that same copy
     shutil.copyfile(os.path.join(src, "tools", "flipper_crystal.py"), os.path.join(HERE, "flipper_crystal.py"))
     with open(os.path.join(APPS, "manifest.json"), "w") as f:

@@ -8,9 +8,11 @@ tools, same method:
 - **The command line** (`hfxo_ntp.py`), using NTP. Needs Python 3, `pyserial`, and outbound UDP port 123.
 
 ```
-pip install pyserial
-python3 hfxo_ntp.py /dev/tty.usbmodemXXXX --minutes 30     # COM5 on Windows, /dev/ttyACM0 on Linux
+uv run hfxo_ntp.py /dev/tty.usbmodemXXXX --minutes 30      # COM5 on Windows, /dev/ttyACM0 on Linux
 ```
+
+`uv run` and `pipx run` install pyserial themselves, from the script's inline header. With plain Python,
+`pip install pyserial` first, then `python3 hfxo_ntp.py ...`.
 
 ## Firmware
 

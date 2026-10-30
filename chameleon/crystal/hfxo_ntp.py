@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
+# /// script
+# requires-python = ">=3.8"
+# dependencies = ["pyserial"]
+# ///
 """Chameleon Ultra crystal offset over USB, timed against an NTP server. The command-line twin of index.html.
 
+    uv run hfxo_ntp.py /dev/tty.usbmodemXXXX     # or: pipx run hfxo_ntp.py ... (both install pyserial)
     pip install pyserial
     python3 hfxo_ntp.py /dev/tty.usbmodemXXXX [--minutes 30] [--server time.cloudflare.com]
     python3 hfxo_ntp.py COM5 --minutes 15
