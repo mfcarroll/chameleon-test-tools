@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>PM3 Crystal Offset</title>
+    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
+  </head>
+  <body>
+    <main id="app" data-state="connect">
+      <a class="back" href="../../">← RFID test tools</a>
+      <h1>Proxmark3 crystal oscillator offset</h1>
+      <p class="sub">
+        Measure how fast or slow your Proxmark3's 16 MHz crystal runs, against
+        internet time.
+      </p>
+
+      <ol class="steps" aria-label="Progress">
+        <li id="step-connect"><span>1</span>Connect</li>
+        <li id="step-measure"><span>2</span>Measure</li>
+        <li id="step-result"><span>3</span>Result</li>
+      </ol>
+
+      <section class="flow" aria-live="polite">
+        <div class="only-connect">
+          <h2>Connect your Proxmark3</h2>
+          <p class="note">
+            Plug your PM3 in to USB, not Bluetooth, and quit the pm3 client or
+            anything else using it. This browser-based tool requires Chrome or
+            Edge on a computer. See below for alternative options.
+          </p>
+          <div class="row gap-top">
+            <button id="connect" class="primary">Connect PM3</button>
+            <span id="connectinfo" class="note"></span>
+          </div>
+        </div>
+
+        <div class="only-ready">
+          <div>
+            <div class="ok small">Connected</div>
+            <div class="title" id="devinfo">Proxmark3</div>
+            <div class="note" id="fwinfo">Checking the firmware…</div>
+          </div>
+          <div class="row gap-top">
+            <select id="minutes" aria-label="Duration">
+              <option value="5">5 min (rough, about ±2 ppm)</option>
+              <option value="15">15 min</option>
+              <option value="30" selected>30 min (recommended)</option>
+              <option value="60">60 min</option>
+            </select>
+            <button id="start" class="primary">Start measuring</button>
+          </div>
+          <p class="note gap-top" id="notice">
+            Keep this tab open in the foreground with the computer awake, stay
+            on the same network, and leave the PM3's button alone.
+          </p>
+          <details class="options">
+            <summary>Options</summary>
+            <label
+              >Time-server burst size
+              <input id="burst" type="number" min="20" max="400" value="120"
+            /></label>
+          </details>
+        </div>
+
+        <div class="only-run">
+          <div class="row spread">
+            <h2 class="phase" id="phase">starting</h2>
+            <span class="note" id="elapsed">–</span>
+          </div>
+          <div
+            class="bar"
+            role="progressbar"
+            aria-label="Run progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div id="progress"></div>
+          </div>
+          <div class="note">Estimate so far</div>
+          <div class="big" id="prov">–</div>
+        </div>
+
+        <div class="only-done">
+          <div id="doneinfo" class="small"></div>
+          <div class="big" id="result">–</div>
+          <div class="note" id="resultnote">
+            The crystal's offset, + meaning fast.
+          </div>
+        </div>
+
+        <div class="grid gap-top run-done">
+          <div class="stat">
+            <div class="k">PM3 relative to this computer</div>
+            <div class="v" id="devrate">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">This computer's clock</div>
+            <div class="v" id="host">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">PM3 read scatter</div>
+            <div class="v" id="rms">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Network check</div>
+            <div class="v" id="bounds">–</div>
+          </div>
+        </div>
+
+        <div class="row gap-top only-run">
+          <button id="finish">Finish now</button>
+          <button id="abort">Stop</button>
+        </div>
+        <div class="row gap-top only-done">
+          <button id="again">Measure again</button>
+          <button id="download">Download log</button>
+        </div>
+
+        <div class="not-run aside">
+          <div class="small"><b>Firmware</b></div>
+          <p class="note">
+            Measuring needs the test firmware, which is Iceman master plus a
+            command that reads the crystal-driven tick counter (<a
+              href="https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks"
+              >source</a
+            >). Flash the test firmware with your own pm3 client, and flash
+            your usual firmware back when you're done. Flashing the OS leaves
+            the bootloader alone.
+          </p>
+          <ul class="note">
+            <li>
+              PM3 Easy and other generic boards:
+              <a href="firmware/hw-ticks-a8471ac1-pm3generic-fullimage.elf" download
+                >hw-ticks-a8471ac1-pm3generic-fullimage.elf</a
+              >
+            </li>
+            <li>
+              PM3 RDV4:
+              <a href="firmware/hw-ticks-a8471ac1-pm3rdv4-fullimage.elf" download
+                >hw-ticks-a8471ac1-pm3rdv4-fullimage.elf</a
+              >
+            </li>
+          </ul>
+          <div class="cmdbox">
+            <pre class="cmd">./client/proxmark3 /dev/tty.usbmodemXXXX --flash --image hw-ticks-a8471ac1-pm3generic-fullimage.elf</pre>
+            <button class="copy" aria-label="Copy the command">Copy</button>
+          </div>
+          <p class="note">
+            Run the command from your proxmark3 folder, with your PM3's port
+            (<code>/dev/ttyACM0</code> on Linux, <code>COM5</code> or similar
+            on Windows). To go back, run <code>./pm3-flash-fullimage</code>
+            there as usual.
+          </p>
+        </div>
+      </section>
+
+      <details class="fold" id="details" hidden>
+        <summary><h2>Measurement details</h2></summary>
+        <div class="grid">
+          <div class="stat">
+            <div class="k">PM3 reads</div>
+            <div class="v" id="reads">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Time-server samples</div>
+            <div class="v" id="refn">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Fastest round trip</div>
+            <div class="v" id="minrtt">–</div>
+          </div>
+        </div>
+        <div class="plots">
+          <figure>
+            <h3>This computer relative to time server</h3>
+            <canvas id="plot"></canvas>
+            <details class="about">
+              <summary>About this plot</summary>
+              <p class="note">
+                Each dot is one request to the time server and shows how far
+                this computer's clock has moved relative to the time server
+                since the start of the run. The line only uses the fastest
+                requests (blue), and its slope shows the overall rate at which
+                the computer's clock is moving away from the server. A line
+                falling 1 ms over 5 minutes means the computer's clock runs
+                3.3 ppm slow.
+              </p>
+            </details>
+          </figure>
+          <figure>
+            <h3>PM3 relative to this computer</h3>
+            <canvas id="devplot"></canvas>
+            <details class="about">
+              <summary>About this plot</summary>
+              <p class="note">
+                Each dot is one reading from the PM3's tick counter and shows
+                how far the PM3's clock has moved relative to this computer
+                since the start of the run. The slope shows how quickly the
+                crystal is moving away from this computer's clock, and the
+                scatter represents USB delays. The crystal's true offset (how
+                fast or slow it runs in absolute terms) is this plot's slope
+                plus the computer clock's slope from the other plot.
+              </p>
+            </details>
+          </figure>
+        </div>
+      </details>
+
+      <details class="fold" id="cli">
+        <summary><h2>Command line (Python script)</h2></summary>
+        <p class="note">
+          <a href="pm3_crystal.py" download>pm3_crystal.py</a> performs the
+          same measurement against NTP. The script also needs the test
+          firmware, and the pm3 client must be closed.
+        </p>
+        <div class="tabs" role="tablist" aria-label="How to run it">
+          <button role="tab" id="tab-uv" aria-controls="panel-uv" aria-selected="true">uv</button>
+          <button role="tab" id="tab-pipx" aria-controls="panel-pipx" aria-selected="false">pipx</button>
+          <button role="tab" id="tab-python" aria-controls="panel-python" aria-selected="false">Python</button>
+          <button role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false">Windows</button>
+        </div>
+        <div role="tabpanel" id="panel-uv" aria-labelledby="tab-uv">
+          <div class="cmdbox">
+            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+uv run pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">
+            <a href="https://docs.astral.sh/uv/">uv</a> installs pyserial
+            automatically.
+          </p>
+        </div>
+        <div role="tabpanel" id="panel-pipx" aria-labelledby="tab-pipx" hidden>
+          <div class="cmdbox">
+            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+pipx run pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">
+            <a href="https://pipx.pypa.io">pipx</a> installs pyserial
+            automatically.
+          </p>
+        </div>
+        <div role="tabpanel" id="panel-python" aria-labelledby="tab-python" hidden>
+          <div class="cmdbox">
+            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+pip install pyserial
+python3 pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">On macOS or Linux (on Linux the port is usually /dev/ttyACM0).</p>
+        </div>
+        <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" hidden>
+          <div class="cmdbox">
+            <pre class="cmd">curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+py -m pip install pyserial
+py pm3_crystal.py COM5</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">In PowerShell or the Command Prompt.</p>
+        </div>
+        <h3>Options</h3>
+        <dl class="options-list">
+          <dt><code>PORT</code></dt>
+          <dd>
+            The PM3's serial port: <code>/dev/tty.usbmodem…</code> on macOS,
+            <code>/dev/ttyACM0</code> on Linux, <code>COM5</code> or similar on
+            Windows.
+          </dd>
+          <dt><code>--minutes N</code></dt>
+          <dd>How long to measure. 30 by default.</dd>
+          <dt><code>--server HOST</code></dt>
+          <dd>The NTP server. <code>time.cloudflare.com</code> by default.</dd>
+          <dt><code>--log FILE</code></dt>
+          <dd>Write every sample to a file.</dd>
+        </dl>
+      </details>
+
+      <details class="fold" id="protocol">
+        <summary><h2>For developers</h2></summary>
+        <p class="note">
+          The test firmware adds <code>CMD_HW_TICKS</code> (0x011B) to the
+          PM3's protocol (<a
+            href="https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks"
+            >branch <code>feat/hw-ticks</code></a
+          >). The command reads the firmware's tick counter (TC0 and TC1
+          chained), which counts the master clock divided by 32. The PLL makes
+          the 48 MHz master clock from the crystal. The count therefore runs at
+          1.5 MHz. The 125 kHz LF carrier also comes from the crystal and is off
+          by the same ppm.
+        </p>
+        <ul class="note">
+          <li>
+            The command takes one byte. 0 starts the count from zero, 1 reads
+            the count, and 2 stops the tick counter.
+          </li>
+          <li>
+            The reply is the count as a u32, little-endian. The count wraps
+            every 47.7 minutes, and the page adds the wraps back.
+          </li>
+          <li>
+            Other firmware commands use the same tick counter. The page sends
+            no other command during a run, and stops a run whose count jumps.
+          </li>
+        </ul>
+      </details>
+
+      <details class="fold" id="logbox">
+        <summary><h2>Log</h2></summary>
+        <pre id="log"></pre>
+      </details>
+    </main>
+    <script type="importmap">
+      {
+        "imports": {
+          "../../common/page.js": "../../common/page.js?v=d90e2e23bb",
+          "../../common/timefit.js": "../../common/timefit.js?v=50febcf9c0",
+          "../../common/timerun.js": "../../common/timerun.js?v=d1a2d3794b",
+          "./pm3.js": "./pm3.js?v=7433834ee8"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as P from "./pm3.js";
+      import { $, nowS, log, hasWebSerial, bindTabs, bindCopyButtons } from "../../common/page.js";
+      import { newRun, measure, bindRunControls, currentRun, redrawPlots } from "../../common/timerun.js";
+
+      let pm3 = null,
+        ticks = null,
+        counter = false, // the connected firmware has CMD_HW_TICKS
+        running = false;
+
+      // The page shows one step of the flow at a time: connect, ready, run or done.
+      function setState(state) {
+        $("app").dataset.state = state;
+        const steps = {
+          connect: ["current", "", ""],
+          ready: ["done", "current", ""],
+          run: ["done", "current", ""],
+          done: ["done", "done", "done"],
+        }[state];
+        ["step-connect", "step-measure", "step-result"].forEach((id, i) => ($(id).className = steps[i]));
+        setButtons();
+      }
+
+      function setButtons() {
+        $("start").disabled = running || !pm3 || !counter;
+      }
+
+      // ---------------------------------------------------------------- connect and firmware
+
+      // A READ of CMD_HW_TICKS changes nothing, and only the test firmware answers it.
+      async function checkFirmware(version) {
+        counter = await ticks.read().then(
+          () => true,
+          (e) => (log(`firmware check: ${e.message}`), false),
+        );
+        $("fwinfo").textContent = counter
+          ? `Firmware ${version}, with the tick counter.`
+          : `Firmware ${version} can't count the crystal's ticks. Flash the test firmware below.`;
+        $("start").className = counter ? "primary" : "";
+      }
+
+      // Reuse the PM3 port this page was allowed before. With none, or more than one, the browser asks.
+      async function pickPort() {
+        const known = (await navigator.serial.getPorts()).filter((p) => {
+          const i = p.getInfo();
+          return i.usbVendorId === P.USB.usbVendorId && i.usbProductId === P.USB.usbProductId;
+        });
+        return known.length === 1 ? known[0] : navigator.serial.requestPort({ filters: [P.USB] });
+      }
+
+      $("connect").onclick = async () => {
+        if (!hasWebSerial()) {
+          $("connectinfo").textContent = "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
+          return;
+        }
+        try {
+          const port = await pickPort();
+          await pm3?.close();
+          pm3 = new P.SerialPM3({ onDebug: (text) => log(`PM3: ${text}`) });
+          await pm3.open(port);
+          ticks = new P.Ticks(pm3);
+          const version = (await pm3.version()).os;
+          $("devinfo").textContent = "Proxmark3";
+          log(`connected, firmware ${version}`);
+          await checkFirmware(version);
+          setState("ready");
+        } catch (e) {
+          log(`connect failed: ${e.message}`);
+          $("connectinfo").textContent = /open|busy|access/i.test(e.message)
+            ? `Couldn't open the PM3. Is the pm3 client still running? (${e.message})`
+            : `Couldn't connect: ${e.message}`;
+          await pm3?.close();
+          pm3 = null;
+        }
+      };
+
+      // ---------------------------------------------------------------- the run
+
+      // Another command that starts or stops the tick counter resets or stops the count. A read whose count moved
+      // more than 1 s away from the local clock's elapsed time means such a command ran.
+      let prev = null;
+      const device = {
+        start: async () => (prev = await ticks.start()),
+        read: async () => {
+          const p = await ticks.read();
+          const dt = (p.tb + p.ta) / 2 - (prev.tb + prev.ta) / 2;
+          if (Math.abs((p.ticks - prev.ticks) / P.NOMINAL - dt) > 1)
+            throw new Error(`the tick count jumped ${((p.ticks - prev.ticks) / P.NOMINAL - dt).toFixed(1)} s. The PM3 reset or ran another command.`);
+          return (prev = p);
+        },
+        stop: () => ticks.stop(),
+      };
+
+      // the progress bar, every second alongside the shared Elapsed figure
+      setInterval(() => {
+        const run = currentRun();
+        if (!running || !run) return;
+        const done = Math.min(100, ((nowS() - run.t0) / (run.minutes * 60)) * 100);
+        $("progress").style.width = `${done}%`;
+        document.querySelector(".bar").setAttribute("aria-valuenow", String(Math.round(done)));
+      }, 1000);
+
+      $("start").onclick = async () => {
+        const minutes = Number($("minutes").value);
+        const burstN = Math.max(20, Number($("burst").value) | 0);
+        const firmware = (await pm3.version()).os;
+        const run = newRun({ minutes, burstN, nominal: P.NOMINAL, device: "PM3", firmware });
+        log(`run ${run.id}: ${minutes} min, bursts of ${burstN}, firmware ${firmware}`);
+        $("progress").style.width = "0";
+        running = true;
+        setState("run");
+        $("details").hidden = false;
+        $("details").open = true;
+        const r = await measure(device);
+        running = false;
+        if (!r) {
+          $("notice").textContent = `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
+          setState("ready");
+          return;
+        }
+        $("doneinfo").textContent = r.suspect ? "The network check failed. Run it again." : "Measured";
+        $("doneinfo").className = `small ${r.suspect ? "warn" : "ok"}`;
+        setState("done");
+      };
+
+      $("again").onclick = () => {
+        $("notice").textContent =
+          "Keep this tab open in the foreground with the computer awake, stay on the same network, and leave the PM3's button alone.";
+        setState(pm3 ? "ready" : "connect");
+      };
+
+      // a plot hidden while its section was closed draws at its real size once it opens
+      $("details").addEventListener("toggle", () => $("details").open && redrawPlots());
+
+      bindTabs();
+      bindCopyButtons();
+      bindRunControls("pm3-crystal");
+      setState("connect");
+    </script>
+  </body>
+</html>

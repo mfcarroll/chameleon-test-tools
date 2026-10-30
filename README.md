@@ -23,6 +23,12 @@ build also has a release here, tagged `fw-<branch>-<commit>`. The pages flash wi
 |---|---|---|
 | [`flipper/crystal/`](flipper/crystal/) | measures the 32 MHz crystal against internet time and saves the correction in the RFID detector app, allowing exact LF reader frequency measurements | RFID detector 1.5 or later (the page can install it on OFW or Momentum) |
 
+## Proxmark3
+
+| tool | what it does | firmware |
+|---|---|---|
+| [`proxmark3/crystal/`](proxmark3/crystal/) | how fast or slow the 16 MHz crystal runs, measured against internet time | Iceman master + `CMD_HW_TICKS` ([`feat/hw-ticks`](https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks)), flashed with your own pm3 client |
+
 `common/` holds what every page shares: the stylesheet, page helpers, and the crystal measurement and its fits.
 
 ## Publishing

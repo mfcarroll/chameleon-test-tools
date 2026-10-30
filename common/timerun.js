@@ -1,5 +1,5 @@
 // A crystal measurement against a time server, and the page sections that show it (Progress, Result, the plot).
-// Shared by the Chameleon Ultra and Flipper crystal pages; the device comes in as { start, read, stop }, each
+// Shared by the crystal pages; the device comes in as { start, read, stop }, each
 // read being { tb, ta, ticks } (ticks bracketed by local times before and after).
 //
 // The reference is an HTTPS time server (time.akamai.com/?ms: millisecond stamps, open to any page). Its requests

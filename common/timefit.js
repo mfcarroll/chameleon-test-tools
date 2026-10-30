@@ -1,5 +1,5 @@
 // Fits for timing a device's crystal against a time server: the device's tick rate against this computer's
-// clock, and this computer's clock against the server. Shared by the Chameleon Ultra and Flipper crystal pages.
+// clock, and this computer's clock against the server. Shared by the crystal pages.
 // `nominal` is the device's tick rate in Hz.
 
 
