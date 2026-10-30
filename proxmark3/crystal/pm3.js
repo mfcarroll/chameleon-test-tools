@@ -239,6 +239,8 @@ export {
   refFit,
   refOffsetAt,
   boundCheck,
+  meanRef,
+  sourcesCheck,
 } from "../../common/timefit.js";
 export const rateFit = (t, ticks, nominal = NOMINAL) =>
   T.rateFit(t, ticks, nominal);

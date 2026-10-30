@@ -30,6 +30,7 @@ build also has a release here, tagged `fw-<branch>-<commit>`. The pages flash wi
 | [`proxmark3/crystal/`](proxmark3/crystal/) | how fast or slow the 16 MHz crystal runs, measured against internet time | Iceman master + `CMD_HW_TICKS` ([`feat/hw-ticks`](https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks)), flashed with your own pm3 client |
 
 `common/` holds what every page shares: the stylesheet, page helpers, and the crystal measurement and its fits.
+`timeserver/` is the Cloudflare Worker behind `time.mfc.cx`, the pages' second time server.
 
 ## Publishing
 

@@ -34,8 +34,8 @@ save a good result.
 | `apps/`                    | app builds for each firmware, and `manifest.json`, which the page picks from                                    |
 | `build_apps.py`            | makes `apps/` from the app's source, and copies the script                                                      |
 
-The page measures against `time.akamai.com`, with `../../common/timerun.js` and its fits `../../common/timefit.js`,
-shared with the Chameleon Ultra crystal tool; that tool's README describes the method. The app's CLI command is
-described at the bottom of the page and in the app's `tools/README.md`.
+The page measures against `time.akamai.com` and `time.mfc.cx`, with `../../common/timerun.js` and its fits
+`../../common/timefit.js`, shared with the Chameleon Ultra crystal tool; that tool's README describes the method.
+The app's CLI command is described at the bottom of the page and in the app's `tools/README.md`.
 
 GPL-3.0.

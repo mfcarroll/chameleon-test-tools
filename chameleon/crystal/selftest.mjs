@@ -225,5 +225,111 @@ for (const shiftMs of [2, 4, 8]) {
   );
 }
 
+// Two servers on separate paths, requests alternating as on the page. Server 1's clock sits 2.1 ms off server 0's,
+// and `drift` ms is how far server 1's outbound delay grows, steadily, over the run.
+function simulate2({
+  seed,
+  cuPpm,
+  hostPpm,
+  minutes = 30,
+  burstN = 120,
+  drift = 0,
+}) {
+  const r = rng(seed);
+  const loc = (T) => 1.79e9 + 1234.5 + T * (1 + hostPpm * 1e-6);
+  const D = minutes * 60,
+    ref = [],
+    t = [],
+    ticks = [];
+  const req = (T, phase, src) => {
+    const out = 0.006 + r.exp(0.012) + (src ? (drift / 1000) * (T / D) : 0),
+      back = 0.006 + r.exp(0.012);
+    ref.push({
+      tb: loc(T),
+      ta: loc(T + out + back),
+      srv: Math.floor((1.79e9 + T + out + src * 0.0021) * 1000) / 1000,
+      phase,
+      src,
+    });
+    return out + back;
+  };
+  const burst = (T, phase) => {
+    for (let i = 0; i < burstN; i++)
+      T += req(T, phase, 0) + req(T, phase, 1) + 0.25;
+  };
+  burst(0, "start");
+  burst(D / 2 - burstN * 0.15, "mid");
+  burst(D - burstN * 0.3, "end");
+  for (let Tc = 0; Tc <= D; Tc += 2) {
+    const usb =
+      0.0005 + Math.abs(r.norm()) * 0.0007 + (r.u() < 0.01 ? 0.02 : 0);
+    t.push((loc(Tc) + loc(Tc + usb)) / 2);
+    ticks.push(
+      Math.round((Tc + usb / 2) * H.NOMINAL * (1 + cuPpm * 1e-6)) + 987654321,
+    );
+  }
+  const ph = (p, src) => ref.filter((x) => x.phase === p && x.src === src);
+  const fits = [0, 1].map((src) =>
+    H.refFit([ph("start", src), ph("end", src)]),
+  );
+  const dev = H.rateFit(t, ticks);
+  return {
+    res: H.combine(dev, H.meanRef(fits)),
+    one: H.combine(dev, fits[0]),
+    sc: H.sourcesCheck(fits[0], fits[1]),
+    hc1: H.halvesCheck(ph("start", 1), ph("mid", 1), ph("end", 1), t, ticks),
+  };
+}
+
+console.log("two time servers");
+{
+  const both = [],
+    one = [];
+  let flagged = 0;
+  for (let seed = 1; seed <= 40; seed++) {
+    const {
+      res,
+      one: o,
+      sc,
+    } = simulate2({ seed, cuPpm: 36.45, hostPpm: -6.5 });
+    both.push(res.ppm - 36.45);
+    one.push(o.ppm - 36.45);
+    if (!sc.ok) flagged++;
+  }
+  const rms = (a) => Math.sqrt(a.reduce((s, e) => s + e * e, 0) / a.length);
+  console.log(
+    `  steady paths, 40 seeds: error rms ${rms(both).toFixed(3)} ppm with both, ${rms(one).toFixed(3)} with one; ` +
+      `servers disagree ${flagged}/40`,
+  );
+  check(rms(both) < rms(one), "two servers measure better than one");
+  check(flagged <= 1, "no false alarms between servers on steady paths");
+}
+for (const drift of [4, 8]) {
+  let caught = 0,
+    halves = 0,
+    errSum = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const { res, sc, hc1 } = simulate2({
+      seed,
+      cuPpm: 36.45,
+      hostPpm: -6.5,
+      drift,
+    });
+    if (!sc.ok) caught++;
+    if (!hc1.ok) halves++;
+    errSum += Math.abs(res.ppm - 36.45);
+  }
+  // server 1 alone would be off by drift / 2 / 1800 s; the mean of both by about half that
+  console.log(
+    `  ${drift} ms steady drift on one path: mean error ${(errSum / 20).toFixed(2)} ppm; servers disagree ` +
+      `${caught}/20, that server's halves check ${halves}/20`,
+  );
+  if (drift >= 8)
+    check(
+      caught >= 18 && halves <= 2,
+      "the servers catch a slow drift that the halves check can't see",
+    );
+}
+
 console.log(fails ? `${fails} FAILED` : "selftest ok");
 process.exit(fails ? 1 : 0);

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CU Crystal Offset</title>
-    <link rel="stylesheet" href="../../common/style.css?v=20112db1e8" />
+    <link rel="stylesheet" href="../../common/style.css?v=f29e3f4b97" />
   </head>
   <body>
     <main id="app" data-state="connect">
@@ -157,18 +157,18 @@
         </div>
         <div class="plots">
           <figure>
-            <h3>This computer relative to time server</h3>
+            <h3>This computer relative to the time servers</h3>
             <canvas id="plot"></canvas>
             <details class="about">
               <summary>About this plot</summary>
               <p class="note">
-                Each dot is one request to the time server. It shows how far
-                this computer's clock has moved relative to the time server
-                since the start of the run. The line only uses the fastest
-                requests (blue), and its slope shows the overall rate at which
-                the computer's clock is moving away from the server. A line
-                falling 1 ms over 5 minutes means the computer's clock runs 3.3
-                ppm slow.
+                Each dot is one request to a time server and shows how far this
+                computer's clock has moved relative to that server since the
+                start of the run. The line only uses the fastest requests (blue
+                for Akamai, orange for Cloudflare), and its slope shows the
+                overall rate at which the computer's clock is moving away from
+                internet time. A line falling 1 ms over 5 minutes means the
+                computer's clock runs 3.3 ppm slow.
               </p>
             </details>
           </figure>
@@ -340,10 +340,10 @@ py hfxo_ntp.py COM5</pre>
         "imports": {
           "../common/cu.js": "../common/cu.js?v=6b2efc102b",
           "../common/flash-ui.js": "../common/flash-ui.js?v=7b15c30015",
-          "./hfxo.js": "./hfxo.js?v=a897f54b70",
+          "./hfxo.js": "./hfxo.js?v=cf339b43eb",
           "../../common/page.js": "../../common/page.js?v=933a5f6b4a",
-          "../../common/timefit.js": "../../common/timefit.js?v=f6a0baac9a",
-          "../../common/timerun.js": "../../common/timerun.js?v=12fcaa8084"
+          "../../common/timefit.js": "../../common/timefit.js?v=a165dd8f4b",
+          "../../common/timerun.js": "../../common/timerun.js?v=05974adf85"
         }
       }
     </script>

@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PM3 Crystal Offset</title>
-    <link rel="stylesheet" href="../../common/style.css?v=20112db1e8" />
+    <link rel="stylesheet" href="../../common/style.css?v=f29e3f4b97" />
   </head>
   <body>
     <main id="app" data-state="connect">
@@ -148,14 +148,14 @@
           </ul>
           <div class="cmdbox">
             <pre class="cmd">
-./client/proxmark3 /dev/tty.usbmodemXXXX --flash --image hw-ticks-a8471ac1-pm3generic-fullimage.elf</pre>
+./pm3-flash hw-ticks-a8471ac1-pm3generic-fullimage.elf</pre>
             <button class="copy" aria-label="Copy the command">Copy</button>
           </div>
           <p class="note">
-            Run the command from your proxmark3 folder, with your PM3's port
-            (<code>/dev/ttyACM0</code> on Linux, <code>COM5</code> or similar on
-            Windows). To go back, run <code>./pm3-flash-fullimage</code>
-            there as usual.
+            Run it from your proxmark3 folder with the image there, and use the
+            RDV4 image's name on an RDV4. <code>pm3-flash</code> finds the PM3's
+            port itself. To go back, run
+            <code>./pm3-flash-fullimage</code> there as usual.
           </p>
         </div>
       </section>
@@ -178,18 +178,18 @@
         </div>
         <div class="plots">
           <figure>
-            <h3>This computer relative to time server</h3>
+            <h3>This computer relative to the time servers</h3>
             <canvas id="plot"></canvas>
             <details class="about">
               <summary>About this plot</summary>
               <p class="note">
-                Each dot is one request to the time server and shows how far
-                this computer's clock has moved relative to the time server
-                since the start of the run. The line only uses the fastest
-                requests (blue), and its slope shows the overall rate at which
-                the computer's clock is moving away from the server. A line
-                falling 1 ms over 5 minutes means the computer's clock runs 3.3
-                ppm slow.
+                Each dot is one request to a time server and shows how far this
+                computer's clock has moved relative to that server since the
+                start of the run. The line only uses the fastest requests (blue
+                for Akamai, orange for Cloudflare), and its slope shows the
+                overall rate at which the computer's clock is moving away from
+                internet time. A line falling 1 ms over 5 minutes means the
+                computer's clock runs 3.3 ppm slow.
               </p>
             </details>
           </figure>
@@ -364,9 +364,9 @@ py pm3_crystal.py COM5</pre>
       {
         "imports": {
           "../../common/page.js": "../../common/page.js?v=933a5f6b4a",
-          "../../common/timefit.js": "../../common/timefit.js?v=f6a0baac9a",
-          "../../common/timerun.js": "../../common/timerun.js?v=12fcaa8084",
-          "./pm3.js": "./pm3.js?v=f065a9a380"
+          "../../common/timefit.js": "../../common/timefit.js?v=a165dd8f4b",
+          "../../common/timerun.js": "../../common/timerun.js?v=05974adf85",
+          "./pm3.js": "./pm3.js?v=1f37b3ad7c"
         }
       }
     </script>

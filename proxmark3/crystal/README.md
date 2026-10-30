@@ -30,12 +30,12 @@ firmware reports `Iceman/feat/hw-ticks/v4.23346-234-ga8471ac1f`. Flash the image
 client, from your proxmark3 folder:
 
 ```
-./client/proxmark3 /dev/tty.usbmodemXXXX --flash --image hw-ticks-a8471ac1-pm3generic-fullimage.elf
+./pm3-flash hw-ticks-a8471ac1-pm3generic-fullimage.elf
 ```
 
-The command writes the OS and leaves the bootloader alone. Run `./pm3-flash-fullimage` to go back to your own build.
-While the test firmware is on the PM3, the pm3 client warns that the firmware doesn't match the client. The warning
-is expected.
+`pm3-flash` finds the PM3's port itself. The command writes the OS and leaves the bootloader alone. Run
+`./pm3-flash-fullimage` to go back to your own build. While the test firmware is on the PM3, the pm3 client warns
+that the firmware doesn't match the client. The warning is expected.
 
 The page doesn't flash firmware. Every PM3 owner already has the pm3 client, and the client flashes on every
 platform.

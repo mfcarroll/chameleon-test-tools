@@ -138,6 +138,7 @@ export function boundCheck(fit, samples, q = 0.001) {
 // between the halves, and the device's rate against the local clock then moves by the opposite amount.
 // ⚠ A slow, steady DRIFT in asymmetry looks exactly like a clock rate and no schedule can detect it.
 export function halvesCheck(start, mid, end, t, ticks, nominal, nsig = 3) {
+  if (!mid.length) return null;
   const a = refFit([start, mid]),
     b = refFit([mid, end]);
   const split = mid.reduce((s, x) => s + (x.tb + x.ta) / 2, 0) / mid.length;
@@ -169,6 +170,30 @@ export function halvesCheck(start, mid, end, t, ticks, nominal, nsig = 3) {
     limit: (nsig * sig) / 2,
     ok: Math.abs(diff) <= nsig * sig,
   };
+}
+
+// The local clock against several references: their slopes averaged, each weighted by 1 / sigK^2. Keeps the first
+// fit's a and t0, which only place a plot's baseline.
+export function meanRef(fits) {
+  const ok = fits.filter(Boolean);
+  if (ok.length < 2) return ok[0] ?? null;
+  const w = ok.map((f) => 1 / f.sigK ** 2),
+    W = w.reduce((s, v) => s + v, 0);
+  return {
+    ...ok[0],
+    k: ok.reduce((s, f, i) => s + f.k * w[i], 0) / W,
+    sigK: 1 / Math.sqrt(W),
+    n: ok.reduce((s, f) => s + f.n, 0),
+    span: Math.max(...ok.map((f) => f.span)),
+  };
+}
+
+// Two references reached through different networks. A path problem on one of them moves only its slope, and that
+// includes a slow drift in asymmetry, which the halves check can't see. diff is the crystal against b minus against a.
+export function sourcesCheck(a, b, nsig = 3) {
+  const diff = (a.k - b.k) * 1e6,
+    sig = Math.hypot(a.sigK, b.sigK) * 1e6;
+  return { diff, sig, ok: Math.abs(diff) <= nsig * sig };
 }
 
 // Crystal offset against the reference. Ticks per local second f -> per reference second f / (1 + k).
