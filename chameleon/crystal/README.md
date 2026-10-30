@@ -76,11 +76,11 @@ A + result means the crystal runs fast.
 `selftest.mjs` (`node selftest.mjs`) checks the framing and runs the fits on synthetic runs: network 6 ms each way
 plus exponential queueing (mean 12 ms), 1 ms server stamps, ~1 ms USB jitter with 1 % 20 ms stalls. 40 seeds each:
 
-| run | error rms | worst | mean reported ± |
-|---|---|---|---|
-| 15 min | 0.70 ppm | 2.35 | 0.66 |
-| 30 min | 0.32 ppm | 0.86 | 0.32 |
-| 60 min | 0.13 ppm | 0.30 | 0.16 |
+| run    | error rms | worst | mean reported ± |
+| ------ | --------- | ----- | --------------- |
+| 15 min | 0.70 ppm  | 2.35  | 0.66            |
+| 30 min | 0.32 ppm  | 0.86  | 0.32            |
+| 60 min | 0.13 ppm  | 0.30  | 0.16            |
 
 On a 30 min run the halves check flags a single path change that biases the result by more than about 1.5 ppm.
 
@@ -97,12 +97,12 @@ independent NTP logger to 0.04 ppm. One CU on the test firmware above read +37.4
 
 ## Files
 
-| file | |
-|---|---|
-| `index.html` | the page |
-| `hfxo.js` | command 3125, and the fits at the CU's tick rate; shared by the page and the self-test |
-| `selftest.mjs` | self-test, no hardware |
-| `hfxo_ntp.py` | the command-line version |
-| `firmware/` | the test firmware (stock v2.3.0 is in `../common/firmware/`) |
-| `../common/cu.js`, `../common/flash-ui.js` | the CU client and flashing, shared with the self-trim page |
-| `../../common/timerun.js`, `timefit.js` | the measurement and its fits, shared with the Flipper crystal page |
+| file                                       |                                                                                        |
+| ------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `index.html`                               | the page                                                                               |
+| `hfxo.js`                                  | command 3125, and the fits at the CU's tick rate; shared by the page and the self-test |
+| `selftest.mjs`                             | self-test, no hardware                                                                 |
+| `hfxo_ntp.py`                              | the command-line version                                                               |
+| `firmware/`                                | the test firmware (stock v2.3.0 is in `../common/firmware/`)                           |
+| `../common/cu.js`, `../common/flash-ui.js` | the CU client and flashing, shared with the self-trim page                             |
+| `../../common/timerun.js`, `timefit.js`    | the measurement and its fits, shared with the Flipper crystal page                     |

@@ -22,16 +22,17 @@ save a good result.
 
   Options: `--minutes` (default 30), `--no-send` to only print the result, `--server`, `--log`, and the port if more
   than one Flipper is plugged in.
-- **By hand**, if you already know the offset: in the app, press Left for Config, then *Set calibration manually*.
+
+- **By hand**, if you already know the offset: in the app, press Left for Config, then _Set calibration manually_.
 
 ## Files
 
-| file | what |
-|---|---|
-| `index.html`, `flipper.js` | the page; `flipper.js` talks to the Flipper's CLI over Web Serial |
-| `flipper_crystal.py` | the command-line version, using NTP. A copy: edit the one in the app's `tools/` folder in flipperzero-good-faps |
-| `apps/` | app builds for each firmware, and `manifest.json`, which the page picks from |
-| `build_apps.py` | makes `apps/` from the app's source, and copies the script |
+| file                       | what                                                                                                            |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------- |
+| `index.html`, `flipper.js` | the page; `flipper.js` talks to the Flipper's CLI over Web Serial                                               |
+| `flipper_crystal.py`       | the command-line version, using NTP. A copy: edit the one in the app's `tools/` folder in flipperzero-good-faps |
+| `apps/`                    | app builds for each firmware, and `manifest.json`, which the page picks from                                    |
+| `build_apps.py`            | makes `apps/` from the app's source, and copies the script                                                      |
 
 The page measures against `time.akamai.com`, with `../../common/timerun.js` and its fits `../../common/timefit.js`,
 shared with the Chameleon Ultra crystal tool; that tool's README describes the method. The app's CLI command is

@@ -195,7 +195,6 @@ a.back {
   text-decoration: none;
 }
 
-
 /* stepped pages (Flipper crystal): main[data-state] shows the parts of the flow for that step */
 .steps {
   display: flex;

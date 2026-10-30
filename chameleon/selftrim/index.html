@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CU FSK Self-Trim</title>
-    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
+    <link rel="stylesheet" href="../../common/style.css?v=20112db1e8" />
   </head>
   <body>
     <main>
@@ -215,8 +215,8 @@
           <li>
             Back here: Refresh, then Copy report and send it along with your
             notes. On a wide-search build, also Read event log and Copy event
-            log. "Fields seen" shows whether the reader's field reached the
-            CU. "Reader vs CU" shows the clock difference.
+            log. "Fields seen" shows whether the reader's field reached the CU.
+            "Reader vs CU" shows the clock difference.
           </li>
         </ol>
       </section>
@@ -230,15 +230,19 @@
     <script type="importmap">
       {
         "imports": {
-          "../common/cu.js": "../common/cu.js?v=56508ea97e",
-          "../common/flash-ui.js": "../common/flash-ui.js?v=7b091e57b9",
-          "./selftrim.js": "./selftrim.js?v=b593b66373",
-          "../../common/page.js": "../../common/page.js?v=d90e2e23bb"
+          "../common/cu.js": "../common/cu.js?v=6b2efc102b",
+          "../common/flash-ui.js": "../common/flash-ui.js?v=7b15c30015",
+          "./selftrim.js": "./selftrim.js?v=76ac5c2ddf",
+          "../../common/page.js": "../../common/page.js?v=933a5f6b4a"
         }
       }
     </script>
     <script type="module">
-      import { SerialCU, STATUS_SUCCESS, STATUS_INVALID_CMD } from "../common/cu.js";
+      import {
+        SerialCU,
+        STATUS_SUCCESS,
+        STATUS_INVALID_CMD,
+      } from "../common/cu.js";
       import { bindFlashButtons } from "../common/flash-ui.js";
       import { $, log, hasWebSerial, saveJson } from "../../common/page.js";
       import * as X from "./selftrim.js";
@@ -361,7 +365,8 @@
       }
 
       function setConnected(on) {
-        for (const id of ["refresh", "clear", "copy", "logRead", "logClear"]) $(id).disabled = !on;
+        for (const id of ["refresh", "clear", "copy", "logRead", "logClear"])
+          $(id).disabled = !on;
         if (!on) for (const id of ["logCopy", "logSave"]) $(id).disabled = true;
         if (!on)
           for (const id of ["src", "plan4", "plan6", "apply"])
@@ -460,13 +465,23 @@
       $("logSave").onclick = () => {
         if (!lastLog) return;
         const t = new Date().toISOString().replace(/[:.]/g, "-").slice(0, 19);
-        saveJson(`selftrim-events-${t}.json`, { firmware: fw, read: new Date().toISOString(), ...lastLog });
+        saveJson(`selftrim-events-${t}.json`, {
+          firmware: fw,
+          read: new Date().toISOString(),
+          ...lastLog,
+        });
       };
       $("logClear").onclick = () =>
         run("clear the event log", async () => {
-          if (!confirm("Clear the self-trim event log? Slots, modes and learned readers are kept.")) return;
+          if (
+            !confirm(
+              "Clear the self-trim event log? Slots, modes and learned readers are kept.",
+            )
+          )
+            return;
           const r = await cu.cmd(X.CMD_EVENT_LOG, X.reqLogClear());
-          if (r.status !== STATUS_SUCCESS) throw new Error(`3100 returned status 0x${r.status.toString(16)}`);
+          if (r.status !== STATUS_SUCCESS)
+            throw new Error(`3100 returned status 0x${r.status.toString(16)}`);
           await readLog();
           log("event log cleared");
         });
@@ -591,7 +606,11 @@
         return b;
       }
 
-      const saveFile = (b) => saveJson(`cu-lf-slots-${b.created.replace(/[:.]/g, "").slice(0, 15)}.json`, b);
+      const saveFile = (b) =>
+        saveJson(
+          `cu-lf-slots-${b.created.replace(/[:.]/g, "").slice(0, 15)}.json`,
+          b,
+        );
 
       async function backupNow() {
         $("backupinfo").textContent = "reading every slot…";

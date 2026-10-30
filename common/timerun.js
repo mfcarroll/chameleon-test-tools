@@ -38,7 +38,8 @@ export function newRun({ minutes, burstN, nominal, ...extra }) {
     endBurst: [],
     t0: nowS(),
   };
-  for (const id of ["result", "devrate", "host", "rms", "bounds", "prov"]) $(id).textContent = "–";
+  for (const id of ["result", "devrate", "host", "rms", "bounds", "prov"])
+    $(id).textContent = "–";
   $("result").className = "big";
   return run;
 }
@@ -49,7 +50,8 @@ async function refSample(phase) {
   const body = await r.text();
   const ta = nowS();
   const srv = Number(body);
-  if (!r.ok || !isFinite(srv)) throw new Error(`time server returned ${r.status} "${body.slice(0, 40)}"`);
+  if (!r.ok || !isFinite(srv))
+    throw new Error(`time server returned ${r.status} "${body.slice(0, 40)}"`);
   const s = { tb, ta, srv, phase };
   run.ref.push(s);
   return s;
@@ -127,7 +129,12 @@ export async function measure(dev, { onRead } = {}) {
         }
         if (probe.length) run.probes.push(probe);
         provisional();
-        while (!run.aborted && !run.finishNow && nowS() < Math.min(t, tp + (run.probeEvery ?? PROBE_EVERY))) await sleep(1);
+        while (
+          !run.aborted &&
+          !run.finishNow &&
+          nowS() < Math.min(t, tp + (run.probeEvery ?? PROBE_EVERY))
+        )
+          await sleep(1);
       }
     };
     run.startBurst = await burst("start", n);
@@ -160,7 +167,9 @@ export async function measure(dev, { onRead } = {}) {
 // The running estimate, after every read and probe, and the clock and scatter figures behind it. The plots are drawn
 // from the first request and read, and get their lines once there is enough to fit.
 function provisional() {
-  const ref = run.probes.length ? T.refFit([run.startBurst, ...run.probes.map((p) => T.fastest(p, 0, 1))]) : null;
+  const ref = run.probes.length
+    ? T.refFit([run.startBurst, ...run.probes.map((p) => T.fastest(p, 0, 1))])
+    : null;
   const fit = run.t.length >= 3 ? T.rateFit(run.t, run.c, run.nominal) : null;
   run.plotted = { ref, fit };
   drawServer(ref);
@@ -168,7 +177,9 @@ function provisional() {
   if (run.t.length < 10 || !ref) return;
   run.estimate = T.combine(fit, ref, run.nominal);
   run.estimate.settled = run.estimate.sig < SETTLED_SIG;
-  $("prov").textContent = run.estimate.settled ? fmtPm(run.estimate.ppm, run.estimate.sig) : "settling";
+  $("prov").textContent = run.estimate.settled
+    ? fmtPm(run.estimate.ppm, run.estimate.sig)
+    : "settling";
   $("devrate").textContent = `${fmt(fit.ppm, 1)} ppm`;
   $("host").textContent = `${fmt(-run.estimate.hostPpm, 1)} ppm`;
   $("rms").textContent = `${(fit.rmsUs / 1000).toFixed(2)} ms`;
@@ -184,7 +195,16 @@ function finalResult() {
     return null;
   }
   const r = T.combine(fit, ref, run.nominal);
-  const hc = run.midBurst ? T.halvesCheck(run.startBurst, run.midBurst, run.endBurst, run.t, run.c, run.nominal) : null;
+  const hc = run.midBurst
+    ? T.halvesCheck(
+        run.startBurst,
+        run.midBurst,
+        run.endBurst,
+        run.t,
+        run.c,
+        run.nominal,
+      )
+    : null;
   const bc = T.boundCheck(ref, run.ref);
   $("phase").textContent = "done";
   $("result").textContent = fmtPm(r.ppm, r.sig);
@@ -198,7 +218,9 @@ function finalResult() {
   // The computer's clock stops while it sleeps and the device keeps counting: the reads then sit on two lines.
   // USB jitter is about 1 ms rms, so 20 ms is unmistakable.
   if (fit.rmsUs > 20000) {
-    log(`⚠ reads scatter ${(fit.rmsUs / 1000).toFixed(0)} ms rms around the fit: did the computer sleep? Rejected.`);
+    log(
+      `⚠ reads scatter ${(fit.rmsUs / 1000).toFixed(0)} ms rms around the fit: did the computer sleep? Rejected.`,
+    );
     $("result").textContent = "rejected";
     $("result").className = "big bad";
     $("resultnote").textContent =
@@ -213,33 +235,54 @@ function finalResult() {
       : bc.violations
         ? `<span class="bad">failed: some time-server samples are far off the line</span>`
         : `<span class="ok">passed: the network path stayed the same</span>`;
-  $("result").className = "big " + (suspect ? "bad" : !hc || run.hidden.length ? "warn" : "ok");
+  $("result").className =
+    "big " + (suspect ? "bad" : !hc || run.hidden.length ? "warn" : "ok");
   log(
     `RESULT ${fmt(r.ppm, 3)} ppm ± ${r.sig.toFixed(3)} (uncorrected ${fmt(r.uncorrected, 3)}, host clock ${fmt(-r.hostPpm, 3)} ppm vs server)`,
   );
-  log(`  ref fit: ${ref.n} samples, rms ${ref.rmsMs.toFixed(2)} ms; read fit rms ${(fit.rmsUs / 1000).toFixed(2)} ms, dropped ${fit.dropped}`);
+  log(
+    `  ref fit: ${ref.n} samples, rms ${ref.rmsMs.toFixed(2)} ms; read fit rms ${(fit.rmsUs / 1000).toFixed(2)} ms, dropped ${fit.dropped}`,
+  );
   if (hc)
     log(
       `  halves: crystal ${fmt(hc.first, 3)} then ${fmt(hc.second, 3)} ppm, diff ${fmt(hc.diff, 3)} ± ${hc.sig.toFixed(3)} (host clock ${fmt(hc.hostFirst, 3)} then ${fmt(hc.hostSecond, 3)}): ${hc.ok ? "ok" : "PATH CHANGED"}`,
     );
-  log(`  bound check: ${bc.violations}/${bc.of} samples violate (worst ${bc.worstMs.toFixed(2)} ms)`);
-  if (suspect) log("  ⚠ the path to the time server changed during the run: treat this result as suspect and re-run");
-  if (run.hidden.length) log(`  ⚠ the tab was hidden ${run.hidden.length}x during the run; check the read count looks right`);
+  log(
+    `  bound check: ${bc.violations}/${bc.of} samples violate (worst ${bc.worstMs.toFixed(2)} ms)`,
+  );
+  if (suspect)
+    log(
+      "  ⚠ the path to the time server changed during the run: treat this result as suspect and re-run",
+    );
+  if (run.hidden.length)
+    log(
+      `  ⚠ the tab was hidden ${run.hidden.length}x during the run; check the read count looks right`,
+    );
   run.plotted = { ref, fit };
   drawServer(ref);
   drawDevice(fit);
-  run.result = { ...r, fit, ref, halves: hc, bounds: bc, hidden: run.hidden, suspect: suspect || !hc };
+  run.result = {
+    ...r,
+    fit,
+    ref,
+    halves: hc,
+    bounds: bc,
+    hidden: run.hidden,
+    suspect: suspect || !hc,
+  };
   return run.result;
 }
 
 function update() {
   if (!run) return;
   const elapsed = Math.max(0, Math.floor(nowS() - run.t0));
-  $("elapsed").textContent = `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")} / ${run.minutes} min`;
+  $("elapsed").textContent =
+    `${Math.floor(elapsed / 60)}:${String(elapsed % 60).padStart(2, "0")} / ${run.minutes} min`;
   $("reads").textContent = String(run.reads.length);
   $("refn").textContent = String(run.ref.length);
   const rt = run.ref.map(T.sampleRtt);
-  if (rt.length) $("minrtt").textContent = `${(Math.min(...rt) * 1e3).toFixed(1)} ms`;
+  if (rt.length)
+    $("minrtt").textContent = `${(Math.min(...rt) * 1e3).toFixed(1)} ms`;
 }
 
 // Finish now, Abort, Download log, and noting when the tab is hidden. `file` names the downloaded log.
@@ -263,7 +306,9 @@ export function bindRunControls(file) {
   document.addEventListener("visibilitychange", () => {
     if (run && !run.result && document.hidden) {
       run.hidden.push(nowS());
-      log("tab hidden: timers keep running in a worker, but keep it visible if you can");
+      log(
+        "tab hidden: timers keep running in a worker, but keep it visible if you can",
+      );
     }
   });
 }
@@ -284,7 +329,8 @@ function niceTicks(lo, hi, count) {
   const magnitude = 10 ** Math.floor(Math.log10(rough));
   const step = [1, 2, 5, 10].map((m) => m * magnitude).find((s) => s >= rough);
   const ticks = [];
-  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step) ticks.push(Math.round(v / step) * step);
+  for (let v = Math.ceil(lo / step) * step; v <= hi + step * 1e-9; v += step)
+    ticks.push(Math.round(v / step) * step);
   return { ticks, decimals: Math.max(0, -Math.floor(Math.log10(step))) };
 }
 
@@ -327,7 +373,11 @@ function plotFrame(id, xmax, lo, hi) {
   xAxis.ticks.forEach((minutes, i) => {
     const last = i === xAxis.ticks.length - 1;
     g.textAlign = i === 0 ? "left" : last ? "right" : "center";
-    g.fillText(last ? `${minutes} min` : String(minutes), X(minutes * 60), Hh - 6);
+    g.fillText(
+      last ? `${minutes} min` : String(minutes),
+      X(minutes * 60),
+      Hh - 6,
+    );
   });
   g.textAlign = "left";
   return { g, col, X, Y, L, R, W, Tp };
@@ -354,14 +404,16 @@ function drawServer(ref) {
   if (!run.ref.length) return;
   // This computer's clock against the server's, from the line's value at the start (or the first sample's, before
   // there is a line). The line starts at 0, and a slow computer clock falls below it.
-  const baseline = ref ? T.refOffsetAt(ref, run.t0) : T.sampleOffset(run.ref[0]);
+  const baseline = ref
+    ? T.refOffsetAt(ref, run.t0)
+    : T.sampleOffset(run.ref[0]);
   const pts = run.ref.map((s) => ({
     x: (s.tb + s.ta) / 2 - run.t0,
     y: (baseline - T.sampleOffset(s)) * 1e3,
   }));
   const fast = new Set(
-    [run.startBurst, run.midBurst ?? [], run.endBurst, ...run.probes].flatMap((b) =>
-      T.fastest(b, 0.2, b.length < 10 ? 1 : 5),
+    [run.startBurst, run.midBurst ?? [], run.endBurst, ...run.probes].flatMap(
+      (b) => T.fastest(b, 0.2, b.length < 10 ? 1 : 5),
     ),
   );
   const ys = pts.map((p) => p.y).sort((a, b) => a - b);
@@ -384,7 +436,15 @@ function drawServer(ref) {
     g.arc(X(p.x), Y(p.y), fast.has(s) ? 2.6 : 1.6, 0, 7);
     g.fill();
   });
-  if (ref) plotLine(frame, 0, 0, xEnd, lineEnd, `line: computer clock ${fmt(-ref.k * 1e6, 1)} ppm vs. internet time`);
+  if (ref)
+    plotLine(
+      frame,
+      0,
+      0,
+      xEnd,
+      lineEnd,
+      `line: computer clock ${fmt(-ref.k * 1e6, 1)} ppm vs. internet time`,
+    );
 }
 
 // The device's clock against this computer's: each read's ticks as time, from the first read. The line's slope is
@@ -393,10 +453,16 @@ function drawDevice(fit) {
   if (!$("devplot") || run.t.length < 2) return;
   const pts = run.t.map((t, i) => {
     const x = t - run.t[0];
-    return { x: t - run.t0, y: ((run.c[i] - run.c[0]) / run.nominal - x) * 1e3, fromFirst: x };
+    return {
+      x: t - run.t0,
+      y: ((run.c[i] - run.c[0]) / run.nominal - x) * 1e3,
+      fromFirst: x,
+    };
   });
   const slope = fit ? fit.f / run.nominal - 1 : 0; // the device's clock against this computer's
-  const intercept = fit ? T.median(pts.map((p) => p.y - slope * p.fromFirst * 1e3)) : 0;
+  const intercept = fit
+    ? T.median(pts.map((p) => p.y - slope * p.fromFirst * 1e3))
+    : 0;
   const lineAt = (x) => intercept + slope * (x - (run.t[0] - run.t0)) * 1e3;
   const ys = pts.map((p) => p.y).sort((a, b) => a - b);
   const xmax = Math.max(run.minutes * 60, ...pts.map((p) => p.x));
@@ -418,6 +484,13 @@ function drawDevice(fit) {
   }
   if (fit) {
     const device = run.device ?? "device";
-    plotLine(frame, xStart, lineAt(xStart), xEnd, lineAt(xEnd), `line: ${device} ${fmt(fit.ppm, 1)} ppm vs. this computer`);
+    plotLine(
+      frame,
+      xStart,
+      lineAt(xStart),
+      xEnd,
+      lineAt(xEnd),
+      `line: ${device} ${fmt(fit.ppm, 1)} ppm vs. this computer`,
+    );
   }
 }

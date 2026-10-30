@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>PM3 Crystal Offset</title>
-    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
+    <link rel="stylesheet" href="../../common/style.css?v=20112db1e8" />
   </head>
   <body>
     <main id="app" data-state="connect">
@@ -124,32 +124,37 @@
             command that reads the crystal-driven tick counter (<a
               href="https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks"
               >source</a
-            >). Flash the test firmware with your own pm3 client, and flash
-            your usual firmware back when you're done. Flashing the OS leaves
-            the bootloader alone.
+            >). Flash the test firmware with your own pm3 client, and flash your
+            usual firmware back when you're done. Flashing the OS leaves the
+            bootloader alone.
           </p>
           <ul class="note">
             <li>
               PM3 Easy and other generic boards:
-              <a href="firmware/hw-ticks-a8471ac1-pm3generic-fullimage.elf" download
+              <a
+                href="firmware/hw-ticks-a8471ac1-pm3generic-fullimage.elf"
+                download
                 >hw-ticks-a8471ac1-pm3generic-fullimage.elf</a
               >
             </li>
             <li>
               PM3 RDV4:
-              <a href="firmware/hw-ticks-a8471ac1-pm3rdv4-fullimage.elf" download
+              <a
+                href="firmware/hw-ticks-a8471ac1-pm3rdv4-fullimage.elf"
+                download
                 >hw-ticks-a8471ac1-pm3rdv4-fullimage.elf</a
               >
             </li>
           </ul>
           <div class="cmdbox">
-            <pre class="cmd">./client/proxmark3 /dev/tty.usbmodemXXXX --flash --image hw-ticks-a8471ac1-pm3generic-fullimage.elf</pre>
+            <pre class="cmd">
+./client/proxmark3 /dev/tty.usbmodemXXXX --flash --image hw-ticks-a8471ac1-pm3generic-fullimage.elf</pre>
             <button class="copy" aria-label="Copy the command">Copy</button>
           </div>
           <p class="note">
             Run the command from your proxmark3 folder, with your PM3's port
-            (<code>/dev/ttyACM0</code> on Linux, <code>COM5</code> or similar
-            on Windows). To go back, run <code>./pm3-flash-fullimage</code>
+            (<code>/dev/ttyACM0</code> on Linux, <code>COM5</code> or similar on
+            Windows). To go back, run <code>./pm3-flash-fullimage</code>
             there as usual.
           </p>
         </div>
@@ -183,8 +188,8 @@
                 since the start of the run. The line only uses the fastest
                 requests (blue), and its slope shows the overall rate at which
                 the computer's clock is moving away from the server. A line
-                falling 1 ms over 5 minutes means the computer's clock runs
-                3.3 ppm slow.
+                falling 1 ms over 5 minutes means the computer's clock runs 3.3
+                ppm slow.
               </p>
             </details>
           </figure>
@@ -210,19 +215,48 @@
       <details class="fold" id="cli">
         <summary><h2>Command line (Python script)</h2></summary>
         <p class="note">
-          <a href="pm3_crystal.py" download>pm3_crystal.py</a> performs the
-          same measurement against NTP. The script also needs the test
-          firmware, and the pm3 client must be closed.
+          <a href="pm3_crystal.py" download>pm3_crystal.py</a> performs the same
+          measurement against NTP. The script also needs the test firmware, and
+          the pm3 client must be closed.
         </p>
         <div class="tabs" role="tablist" aria-label="How to run it">
-          <button role="tab" id="tab-uv" aria-controls="panel-uv" aria-selected="true">uv</button>
-          <button role="tab" id="tab-pipx" aria-controls="panel-pipx" aria-selected="false">pipx</button>
-          <button role="tab" id="tab-python" aria-controls="panel-python" aria-selected="false">Python</button>
-          <button role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false">Windows</button>
+          <button
+            role="tab"
+            id="tab-uv"
+            aria-controls="panel-uv"
+            aria-selected="true"
+          >
+            uv
+          </button>
+          <button
+            role="tab"
+            id="tab-pipx"
+            aria-controls="panel-pipx"
+            aria-selected="false"
+          >
+            pipx
+          </button>
+          <button
+            role="tab"
+            id="tab-python"
+            aria-controls="panel-python"
+            aria-selected="false"
+          >
+            Python
+          </button>
+          <button
+            role="tab"
+            id="tab-windows"
+            aria-controls="panel-windows"
+            aria-selected="false"
+          >
+            Windows
+          </button>
         </div>
         <div role="tabpanel" id="panel-uv" aria-labelledby="tab-uv">
           <div class="cmdbox">
-            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
 uv run pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
@@ -233,7 +267,8 @@ uv run pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
         </div>
         <div role="tabpanel" id="panel-pipx" aria-labelledby="tab-pipx" hidden>
           <div class="cmdbox">
-            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
 pipx run pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
@@ -242,18 +277,32 @@ pipx run pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
             automatically.
           </p>
         </div>
-        <div role="tabpanel" id="panel-python" aria-labelledby="tab-python" hidden>
+        <div
+          role="tabpanel"
+          id="panel-python"
+          aria-labelledby="tab-python"
+          hidden
+        >
           <div class="cmdbox">
-            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
 pip install pyserial
 python3 pm3_crystal.py /dev/tty.usbmodemXXXX</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
-          <p class="note">On macOS or Linux (on Linux the port is usually /dev/ttyACM0).</p>
+          <p class="note">
+            On macOS or Linux (on Linux the port is usually /dev/ttyACM0).
+          </p>
         </div>
-        <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" hidden>
+        <div
+          role="tabpanel"
+          id="panel-windows"
+          aria-labelledby="tab-windows"
+          hidden
+        >
           <div class="cmdbox">
-            <pre class="cmd">curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
+            <pre class="cmd">
+curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/pm3_crystal.py
 py -m pip install pyserial
 py pm3_crystal.py COM5</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
@@ -280,8 +329,8 @@ py pm3_crystal.py COM5</pre>
       <details class="fold" id="protocol">
         <summary><h2>For developers</h2></summary>
         <p class="note">
-          The test firmware adds <code>CMD_HW_TICKS</code> (0x011B) to the
-          PM3's protocol (<a
+          The test firmware adds <code>CMD_HW_TICKS</code> (0x011B) to the PM3's
+          protocol (<a
             href="https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks"
             >branch <code>feat/hw-ticks</code></a
           >). The command reads the firmware's tick counter (TC0 and TC1
@@ -300,8 +349,8 @@ py pm3_crystal.py COM5</pre>
             every 47.7 minutes, and the page adds the wraps back.
           </li>
           <li>
-            Other firmware commands use the same tick counter. The page sends
-            no other command during a run, and stops a run whose count jumps.
+            Other firmware commands use the same tick counter. The page sends no
+            other command during a run, and stops a run whose count jumps.
           </li>
         </ul>
       </details>
@@ -314,17 +363,30 @@ py pm3_crystal.py COM5</pre>
     <script type="importmap">
       {
         "imports": {
-          "../../common/page.js": "../../common/page.js?v=d90e2e23bb",
-          "../../common/timefit.js": "../../common/timefit.js?v=00cd8518c7",
-          "../../common/timerun.js": "../../common/timerun.js?v=f5640bc466",
-          "./pm3.js": "./pm3.js?v=3810ef7258"
+          "../../common/page.js": "../../common/page.js?v=933a5f6b4a",
+          "../../common/timefit.js": "../../common/timefit.js?v=f6a0baac9a",
+          "../../common/timerun.js": "../../common/timerun.js?v=12fcaa8084",
+          "./pm3.js": "./pm3.js?v=f065a9a380"
         }
       }
     </script>
     <script type="module">
       import * as P from "./pm3.js";
-      import { $, nowS, log, hasWebSerial, bindTabs, bindCopyButtons } from "../../common/page.js";
-      import { newRun, measure, bindRunControls, currentRun, redrawPlots } from "../../common/timerun.js";
+      import {
+        $,
+        nowS,
+        log,
+        hasWebSerial,
+        bindTabs,
+        bindCopyButtons,
+      } from "../../common/page.js";
+      import {
+        newRun,
+        measure,
+        bindRunControls,
+        currentRun,
+        redrawPlots,
+      } from "../../common/timerun.js";
 
       let pm3 = null,
         ticks = null,
@@ -340,7 +402,9 @@ py pm3_crystal.py COM5</pre>
           run: ["done", "current", ""],
           done: ["done", "done", "done"],
         }[state];
-        ["step-connect", "step-measure", "step-result"].forEach((id, i) => ($(id).className = steps[i]));
+        ["step-connect", "step-measure", "step-result"].forEach(
+          (id, i) => ($(id).className = steps[i]),
+        );
         setButtons();
       }
 
@@ -366,14 +430,20 @@ py pm3_crystal.py COM5</pre>
       async function pickPort() {
         const known = (await navigator.serial.getPorts()).filter((p) => {
           const i = p.getInfo();
-          return i.usbVendorId === P.USB.usbVendorId && i.usbProductId === P.USB.usbProductId;
+          return (
+            i.usbVendorId === P.USB.usbVendorId &&
+            i.usbProductId === P.USB.usbProductId
+          );
         });
-        return known.length === 1 ? known[0] : navigator.serial.requestPort({ filters: [P.USB] });
+        return known.length === 1
+          ? known[0]
+          : navigator.serial.requestPort({ filters: [P.USB] });
       }
 
       $("connect").onclick = async () => {
         if (!hasWebSerial()) {
-          $("connectinfo").textContent = "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
+          $("connectinfo").textContent =
+            "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
           return;
         }
         try {
@@ -408,7 +478,9 @@ py pm3_crystal.py COM5</pre>
           const p = await ticks.read();
           const dt = (p.tb + p.ta) / 2 - (prev.tb + prev.ta) / 2;
           if (Math.abs((p.ticks - prev.ticks) / P.NOMINAL - dt) > 1)
-            throw new Error(`the tick count jumped ${((p.ticks - prev.ticks) / P.NOMINAL - dt).toFixed(1)} s. The PM3 reset or ran another command.`);
+            throw new Error(
+              `the tick count jumped ${((p.ticks - prev.ticks) / P.NOMINAL - dt).toFixed(1)} s. The PM3 reset or ran another command.`,
+            );
           return (prev = p);
         },
         stop: () => ticks.stop(),
@@ -418,17 +490,30 @@ py pm3_crystal.py COM5</pre>
       setInterval(() => {
         const run = currentRun();
         if (!running || !run) return;
-        const done = Math.min(100, ((nowS() - run.t0) / (run.minutes * 60)) * 100);
+        const done = Math.min(
+          100,
+          ((nowS() - run.t0) / (run.minutes * 60)) * 100,
+        );
         $("progress").style.width = `${done}%`;
-        document.querySelector(".bar").setAttribute("aria-valuenow", String(Math.round(done)));
+        document
+          .querySelector(".bar")
+          .setAttribute("aria-valuenow", String(Math.round(done)));
       }, 1000);
 
       $("start").onclick = async () => {
         const minutes = Number($("minutes").value);
         const burstN = Math.max(20, Number($("burst").value) | 0);
         const firmware = (await pm3.version()).os;
-        const run = newRun({ minutes, burstN, nominal: P.NOMINAL, device: "PM3", firmware });
-        log(`run ${run.id}: ${minutes} min, bursts of ${burstN}, firmware ${firmware}`);
+        const run = newRun({
+          minutes,
+          burstN,
+          nominal: P.NOMINAL,
+          device: "PM3",
+          firmware,
+        });
+        log(
+          `run ${run.id}: ${minutes} min, bursts of ${burstN}, firmware ${firmware}`,
+        );
         $("progress").style.width = "0";
         running = true;
         setState("run");
@@ -437,11 +522,14 @@ py pm3_crystal.py COM5</pre>
         const r = await measure(device);
         running = false;
         if (!r) {
-          $("notice").textContent = `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
+          $("notice").textContent =
+            `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
           setState("ready");
           return;
         }
-        $("doneinfo").textContent = r.suspect ? "The network check failed. Run it again." : "Measured";
+        $("doneinfo").textContent = r.suspect
+          ? "The network check failed. Run it again."
+          : "Measured";
         $("doneinfo").className = `small ${r.suspect ? "warn" : "ok"}`;
         setState("done");
       };
@@ -453,7 +541,10 @@ py pm3_crystal.py COM5</pre>
       };
 
       // a plot hidden while its section was closed draws at its real size once it opens
-      $("details").addEventListener("toggle", () => $("details").open && redrawPlots());
+      $("details").addEventListener(
+        "toggle",
+        () => $("details").open && redrawPlots(),
+      );
 
       bindTabs();
       bindCopyButtons();

@@ -69,11 +69,11 @@ bursts, the NTP queries and the checks.
 `selftest.mjs` (`node selftest.mjs`) checks the framing and the wrap counting. The self-test then runs the fits on
 the Chameleon tool's synthetic runs, at 1.5 MHz and with the count wrapping. Each row is 40 runs:
 
-| run | error rms | worst | mean reported ± |
-|---|---|---|---|
-| 15 min | 0.70 ppm | 2.35 | 0.66 |
-| 30 min | 0.32 ppm | 0.86 | 0.32 |
-| 60 min | 0.13 ppm | 0.30 | 0.16 |
+| run    | error rms | worst | mean reported ± |
+| ------ | --------- | ----- | --------------- |
+| 15 min | 0.70 ppm  | 2.35  | 0.66            |
+| 30 min | 0.32 ppm  | 0.86  | 0.32            |
+| 60 min | 0.13 ppm  | 0.30  | 0.16            |
 
 On hardware (macOS, wifi), a PM3 Easy on the `exp/hw-ticks` build read −103.6 ± 0.1 ppm in a 30 min page run and
 −103.7 ± 0.1 in a 30 min script run, back to back on 2026-10-29. A 30 min run of the research script that preceded
@@ -92,12 +92,12 @@ runs pass the halves check.
 
 ## Files
 
-| file | |
-|---|---|
-| `index.html` | the page |
-| `pm3.js` | the PM3 protocol (NG frames), `CMD_HW_TICKS` and the fits at 1.5 MHz. Used by the page and the self-test. |
-| `selftest.mjs` | self-test, no hardware |
-| `pm3_crystal.py` | the command-line version |
-| `firmware/` | the test firmware |
+| file             |                                                                                                           |
+| ---------------- | --------------------------------------------------------------------------------------------------------- |
+| `index.html`     | the page                                                                                                  |
+| `pm3.js`         | the PM3 protocol (NG frames), `CMD_HW_TICKS` and the fits at 1.5 MHz. Used by the page and the self-test. |
+| `selftest.mjs`   | self-test, no hardware                                                                                    |
+| `pm3_crystal.py` | the command-line version                                                                                  |
+| `firmware/`      | the test firmware                                                                                         |
 
 GPL-3.0.

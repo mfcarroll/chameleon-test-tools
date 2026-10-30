@@ -65,7 +65,7 @@ sent anywhere; the backup file you download is the only copy outside the CU, so 
 
 ## Testing at a reader
 
-1. Load the card into one slot with your usual app or the CLI, then use *Set up a test* with the recommended plan.
+1. Load the card into one slot with your usual app or the CLI, then use _Set up a test_ with the recommended plan.
    Self-trim helps a weak signal, exact bits help a reader that is strict about bit length. Clear results. Unplug.
 2. At the reader: present the CU on one slot several times. Hold it to the reader for at least 2 seconds the first
    time on each slot. Switch slots with the buttons. Note which slot opened it and how quickly.
@@ -87,9 +87,9 @@ line in mHz, fields averaged). `selftrim.js` parses it.
 
 ## Files
 
-| file | |
-|---|---|
-| `index.html` | the page |
-| `selftrim.js` | command 3120 and the slot commands, no DOM |
-| `../common/cu.js`, `../common/flash-ui.js` | the CU client and flashing, shared with the crystal page |
-| `firmware/` | the test firmware (stock v2.3.0 is in `../common/firmware/`) |
+| file                                       |                                                              |
+| ------------------------------------------ | ------------------------------------------------------------ |
+| `index.html`                               | the page                                                     |
+| `selftrim.js`                              | command 3120 and the slot commands, no DOM                   |
+| `../common/cu.js`, `../common/flash-ui.js` | the CU client and flashing, shared with the crystal page     |
+| `firmware/`                                | the test firmware (stock v2.3.0 is in `../common/firmware/`) |

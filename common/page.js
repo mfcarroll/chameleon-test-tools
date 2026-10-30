@@ -10,7 +10,10 @@ export function fmtPm(value, sig) {
   let decimals = 1;
   if (sig > 0) {
     const exponent = Math.floor(Math.log10(sig));
-    decimals = Math.max(0, Math.min(1, -exponent + (sig / 10 ** exponent < 2 ? 1 : 0)));
+    decimals = Math.max(
+      0,
+      Math.min(1, -exponent + (sig / 10 ** exponent < 2 ? 1 : 0)),
+    );
   }
   return `${fmt(value, decimals)} ± ${sig.toFixed(decimals)} ppm`;
 }
@@ -24,9 +27,14 @@ export function log(msg) {
 // Sleep in a worker: a hidden tab throttles its own timers to once a minute, a worker's are not.
 const worker = new Worker(
   URL.createObjectURL(
-    new Blob(["onmessage = (e) => setTimeout(() => postMessage(e.data.id), e.data.ms);"], {
-      type: "text/javascript",
-    }),
+    new Blob(
+      [
+        "onmessage = (e) => setTimeout(() => postMessage(e.data.id), e.data.ms);",
+      ],
+      {
+        type: "text/javascript",
+      },
+    ),
   ),
 );
 const sleepers = new Map();
@@ -44,7 +52,9 @@ export const sleep = (s) =>
 
 export function saveJson(name, data) {
   const a = document.createElement("a");
-  a.href = URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }));
+  a.href = URL.createObjectURL(
+    new Blob([JSON.stringify(data, null, 1)], { type: "application/json" }),
+  );
   a.download = name;
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 1000);
@@ -85,7 +95,9 @@ export function bindCopyButtons() {
   for (const button of document.querySelectorAll("button.copy")) {
     button.onclick = async () => {
       try {
-        await navigator.clipboard.writeText(button.previousElementSibling.textContent);
+        await navigator.clipboard.writeText(
+          button.previousElementSibling.textContent,
+        );
         button.textContent = "Copied";
       } catch {
         // no clipboard access: select the text so a copy shortcut finishes the job

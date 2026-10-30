@@ -4,7 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CU Crystal Offset</title>
-    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
+    <link rel="stylesheet" href="../../common/style.css?v=20112db1e8" />
   </head>
   <body>
     <main id="app" data-state="connect">
@@ -122,9 +122,11 @@
           <div class="small"><b>Firmware</b></div>
           <p class="note">
             Measuring needs the test firmware: stock v2.3.0 plus a crystal tick
-            counter (<a href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count">source</a>). Chameleon Ultra only, not Lite.
-            Flashing keeps your slots and saved cards. Flash stock v2.3.0 back
-            when you're done.
+            counter (<a
+              href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count"
+              >source</a
+            >). Chameleon Ultra only, not Lite. Flashing keeps your slots and
+            saved cards. Flash stock v2.3.0 back when you're done.
           </p>
           <div class="row gap-top">
             <button id="flashTest">Flash test firmware</button>
@@ -165,8 +167,8 @@
                 since the start of the run. The line only uses the fastest
                 requests (blue), and its slope shows the overall rate at which
                 the computer's clock is moving away from the server. A line
-                falling 1 ms over 5 minutes means the computer's clock runs
-                3.3 ppm slow.
+                falling 1 ms over 5 minutes means the computer's clock runs 3.3
+                ppm slow.
               </p>
             </details>
           </figure>
@@ -177,12 +179,12 @@
               <summary>About this plot</summary>
               <p class="note">
                 Each dot is one reading from the CU's crystal tick counter. It
-                shows how far the CU's clock has moved relative to this
-                computer since the start of the run. The slope shows how
-                quickly the crystal is moving away from this computer's clock,
-                and the scatter represents USB delays. The crystal's true
-                offset (how fast or slow it runs in absolute terms) is this
-                slope plus the computer clock's slope from the other plot.
+                shows how far the CU's clock has moved relative to this computer
+                since the start of the run. The slope shows how quickly the
+                crystal is moving away from this computer's clock, and the
+                scatter represents USB delays. The crystal's true offset (how
+                fast or slow it runs in absolute terms) is this slope plus the
+                computer clock's slope from the other plot.
               </p>
             </details>
           </figure>
@@ -196,14 +198,43 @@
           measurement using NTP. It also needs the test firmware.
         </p>
         <div class="tabs" role="tablist" aria-label="How to run it">
-          <button role="tab" id="tab-uv" aria-controls="panel-uv" aria-selected="true">uv</button>
-          <button role="tab" id="tab-pipx" aria-controls="panel-pipx" aria-selected="false">pipx</button>
-          <button role="tab" id="tab-python" aria-controls="panel-python" aria-selected="false">Python</button>
-          <button role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false">Windows</button>
+          <button
+            role="tab"
+            id="tab-uv"
+            aria-controls="panel-uv"
+            aria-selected="true"
+          >
+            uv
+          </button>
+          <button
+            role="tab"
+            id="tab-pipx"
+            aria-controls="panel-pipx"
+            aria-selected="false"
+          >
+            pipx
+          </button>
+          <button
+            role="tab"
+            id="tab-python"
+            aria-controls="panel-python"
+            aria-selected="false"
+          >
+            Python
+          </button>
+          <button
+            role="tab"
+            id="tab-windows"
+            aria-controls="panel-windows"
+            aria-selected="false"
+          >
+            Windows
+          </button>
         </div>
         <div role="tabpanel" id="panel-uv" aria-labelledby="tab-uv">
           <div class="cmdbox">
-            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
 uv run hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
@@ -214,7 +245,8 @@ uv run hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
         </div>
         <div role="tabpanel" id="panel-pipx" aria-labelledby="tab-pipx" hidden>
           <div class="cmdbox">
-            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
 pipx run hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
@@ -223,18 +255,32 @@ pipx run hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
             automatically.
           </p>
         </div>
-        <div role="tabpanel" id="panel-python" aria-labelledby="tab-python" hidden>
+        <div
+          role="tabpanel"
+          id="panel-python"
+          aria-labelledby="tab-python"
+          hidden
+        >
           <div class="cmdbox">
-            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
 pip install pyserial
 python3 hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
-          <p class="note">On macOS or Linux (on Linux the port is usually /dev/ttyACM0).</p>
+          <p class="note">
+            On macOS or Linux (on Linux the port is usually /dev/ttyACM0).
+          </p>
         </div>
-        <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" hidden>
+        <div
+          role="tabpanel"
+          id="panel-windows"
+          aria-labelledby="tab-windows"
+          hidden
+        >
           <div class="cmdbox">
-            <pre class="cmd">curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+            <pre class="cmd">
+curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
 py -m pip install pyserial
 py hfxo_ntp.py COM5</pre>
             <button class="copy" aria-label="Copy the commands">Copy</button>
@@ -262,7 +308,8 @@ py hfxo_ntp.py COM5</pre>
         <summary><h2>For developers</h2></summary>
         <p class="note">
           The test firmware adds command 3125 to the CU's protocol, a tick
-          counter for the crystal-driven 16 MHz clock (<a href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count"
+          counter for the crystal-driven 16 MHz clock (<a
+            href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count"
             >branch <code>feat/hfxo-count</code></a
           >).
         </p>
@@ -291,12 +338,12 @@ py hfxo_ntp.py COM5</pre>
     <script type="importmap">
       {
         "imports": {
-          "../common/cu.js": "../common/cu.js?v=56508ea97e",
-          "../common/flash-ui.js": "../common/flash-ui.js?v=7b091e57b9",
-          "./hfxo.js": "./hfxo.js?v=39f157d452",
-          "../../common/page.js": "../../common/page.js?v=d90e2e23bb",
-          "../../common/timefit.js": "../../common/timefit.js?v=00cd8518c7",
-          "../../common/timerun.js": "../../common/timerun.js?v=f5640bc466"
+          "../common/cu.js": "../common/cu.js?v=6b2efc102b",
+          "../common/flash-ui.js": "../common/flash-ui.js?v=7b15c30015",
+          "./hfxo.js": "./hfxo.js?v=a897f54b70",
+          "../../common/page.js": "../../common/page.js?v=933a5f6b4a",
+          "../../common/timefit.js": "../../common/timefit.js?v=f6a0baac9a",
+          "../../common/timerun.js": "../../common/timerun.js?v=12fcaa8084"
         }
       }
     </script>
@@ -304,12 +351,31 @@ py hfxo_ntp.py COM5</pre>
       import * as H from "./hfxo.js";
       import { SerialCU } from "../common/cu.js";
       import { bindFlashButtons } from "../common/flash-ui.js";
-      import { $, nowS, log, hasWebSerial, bindTabs, bindCopyButtons } from "../../common/page.js";
-      import { newRun, measure, bindRunControls, currentRun, redrawPlots } from "../../common/timerun.js";
+      import {
+        $,
+        nowS,
+        log,
+        hasWebSerial,
+        bindTabs,
+        bindCopyButtons,
+      } from "../../common/page.js";
+      import {
+        newRun,
+        measure,
+        bindRunControls,
+        currentRun,
+        redrawPlots,
+      } from "../../common/timerun.js";
 
       const FIRMWARE = {
-        test: { zip: "firmware/hfxo-count-4e494589-ultra-dfu-app.zip", name: "test firmware (hfxo-count 4e494589)" },
-        stock: { zip: "../common/firmware/stock-v2.3.0-ultra-dfu-app.zip", name: "stock v2.3.0" },
+        test: {
+          zip: "firmware/hfxo-count-4e494589-ultra-dfu-app.zip",
+          name: "test firmware (hfxo-count 4e494589)",
+        },
+        stock: {
+          zip: "../common/firmware/stock-v2.3.0-ultra-dfu-app.zip",
+          name: "stock v2.3.0",
+        },
       };
 
       let cu = null,
@@ -325,7 +391,9 @@ py hfxo_ntp.py COM5</pre>
           run: ["done", "current", ""],
           done: ["done", "done", "done"],
         }[state];
-        ["step-connect", "step-measure", "step-result"].forEach((id, i) => ($(id).className = steps[i]));
+        ["step-connect", "step-measure", "step-result"].forEach(
+          (id, i) => ($(id).className = steps[i]),
+        );
         setButtons();
       }
 
@@ -350,7 +418,8 @@ py hfxo_ntp.py COM5</pre>
 
       $("connect").onclick = async () => {
         if (!hasWebSerial()) {
-          $("connectinfo").textContent = "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
+          $("connectinfo").textContent =
+            "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
           return;
         }
         try {
@@ -378,7 +447,8 @@ py hfxo_ntp.py COM5</pre>
         },
         busy: () => (running ? "finish or stop the run before flashing" : null),
         done: (fw) => {
-          $("connectinfo").textContent = `Flashed ${fw.name}. Connect again to continue.`;
+          $("connectinfo").textContent =
+            `Flashed ${fw.name}. Connect again to continue.`;
           setState("connect");
         },
       });
@@ -391,7 +461,10 @@ py hfxo_ntp.py COM5</pre>
         read: async () => {
           const p = await H.hfxoCount(cu, H.READ);
           if (!p.running) throw new Error("counter not running (CU reset?)");
-          if (p.lapses) throw new Error(`HFXO lapsed ${p.lapses}x: the count rate is invalid, re-run with no LF activity`);
+          if (p.lapses)
+            throw new Error(
+              `HFXO lapsed ${p.lapses}x: the count rate is invalid, re-run with no LF activity`,
+            );
           return p;
         },
         stop: () => H.hfxoCount(cu, H.STOP),
@@ -401,17 +474,30 @@ py hfxo_ntp.py COM5</pre>
       setInterval(() => {
         const run = currentRun();
         if (!running || !run) return;
-        const done = Math.min(100, ((nowS() - run.t0) / (run.minutes * 60)) * 100);
+        const done = Math.min(
+          100,
+          ((nowS() - run.t0) / (run.minutes * 60)) * 100,
+        );
         $("progress").style.width = `${done}%`;
-        document.querySelector(".bar").setAttribute("aria-valuenow", String(Math.round(done)));
+        document
+          .querySelector(".bar")
+          .setAttribute("aria-valuenow", String(Math.round(done)));
       }, 1000);
 
       $("start").onclick = async () => {
         const minutes = Number($("minutes").value);
         const burstN = Math.max(20, Number($("burst").value) | 0);
         const firmware = await cu.version();
-        const run = newRun({ minutes, burstN, nominal: H.NOMINAL, device: "CU", firmware });
-        log(`run ${run.id}: ${minutes} min, bursts of ${burstN}, firmware ${firmware}`);
+        const run = newRun({
+          minutes,
+          burstN,
+          nominal: H.NOMINAL,
+          device: "CU",
+          firmware,
+        });
+        log(
+          `run ${run.id}: ${minutes} min, bursts of ${burstN}, firmware ${firmware}`,
+        );
         $("progress").style.width = "0";
         running = true;
         setState("run");
@@ -420,11 +506,14 @@ py hfxo_ntp.py COM5</pre>
         const r = await measure(device);
         running = false;
         if (!r) {
-          $("notice").textContent = `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
+          $("notice").textContent =
+            `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
           setState("ready");
           return;
         }
-        $("doneinfo").textContent = r.suspect ? "The network check failed. Run it again." : "Measured";
+        $("doneinfo").textContent = r.suspect
+          ? "The network check failed. Run it again."
+          : "Measured";
         $("doneinfo").className = `small ${r.suspect ? "warn" : "ok"}`;
         setState("done");
       };
@@ -436,7 +525,10 @@ py hfxo_ntp.py COM5</pre>
       };
 
       // a plot hidden while its section was closed draws at its real size once it opens
-      $("details").addEventListener("toggle", () => $("details").open && redrawPlots());
+      $("details").addEventListener(
+        "toggle",
+        () => $("details").open && redrawPlots(),
+      );
 
       bindTabs();
       bindCopyButtons();
