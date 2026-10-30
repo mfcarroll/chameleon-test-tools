@@ -4,12 +4,12 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CU FSK Self-Trim</title>
-    <link rel="stylesheet" href="../../common/style.css" />
+    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
   </head>
   <body>
     <main>
       <a class="back" href="../../">← RFID test tools</a>
-      <h1>Chameleon Ultra FSK self-trim (experiment)</h1>
+      <h1>Chameleon Ultra FSK self-trim (experimental)</h1>
       <p class="sub">
         Test firmware that lets the CU match its emulated HID Prox, Paradox and
         ioProx cards to a reader's clock. This page sets it up and shows what it
@@ -227,6 +227,16 @@
       </section>
     </main>
 
+    <script type="importmap">
+      {
+        "imports": {
+          "../common/cu.js": "../common/cu.js?v=56508ea97e",
+          "../common/flash-ui.js": "../common/flash-ui.js?v=7b091e57b9",
+          "./selftrim.js": "./selftrim.js?v=b593b66373",
+          "../../common/page.js": "../../common/page.js?v=d90e2e23bb"
+        }
+      }
+    </script>
     <script type="module">
       import { SerialCU, STATUS_SUCCESS, STATUS_INVALID_CMD } from "../common/cu.js";
       import { bindFlashButtons } from "../common/flash-ui.js";

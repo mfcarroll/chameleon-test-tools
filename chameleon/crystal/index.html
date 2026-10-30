@@ -4,100 +4,142 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>CU Crystal Offset</title>
-    <link rel="stylesheet" href="../../common/style.css" />
+    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
   </head>
   <body>
-    <main>
+    <main id="app" data-state="connect">
       <a class="back" href="../../">← RFID test tools</a>
-      <h1>Chameleon Ultra crystal offset</h1>
+      <h1>Chameleon Ultra crystal oscillator offset</h1>
       <p class="sub">
-        Measures how fast or slow a Chameleon Ultra's 32 MHz crystal runs,
-        against internet time, over USB. To use NTP from the command line
-        instead, run <a href="hfxo_ntp.py" download>hfxo_ntp.py</a>.
+        Measure how fast or slow your Chameleon Ultra's 32 MHz crystal runs,
+        against internet time.
       </p>
 
-      <section>
-        <h2>Before you start</h2>
-        <ul class="note">
-          <li>
-            <b>Chrome or Edge on a computer</b>, with the CU on USB (not
-            Bluetooth).
-          </li>
-          <li>
-            <b>The test firmware below.</b> Stock firmware can't count the
-            crystal's ticks.
-          </li>
-          <li>
-            Close anything else using the CU (e.g. CU App or the Python CLI),
-            and keep it away from readers during the run.
-          </li>
-          <li>
-            Keep this tab open and the computer awake, and stay on the same
-            network.
-          </li>
-        </ul>
-      </section>
+      <ol class="steps" aria-label="Progress">
+        <li id="step-connect"><span>1</span>Connect</li>
+        <li id="step-measure"><span>2</span>Measure</li>
+        <li id="step-result"><span>3</span>Result</li>
+      </ol>
 
-      <section>
-        <h2>Firmware</h2>
-        <p class="note" style="margin-top: 0">
-          Test firmware: stock v2.3.0 plus command 3125, nothing else (<a
-            href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count"
-            >source, branch <code>feat/hfxo-count</code></a
-          >). Chameleon Ultra only, not Lite. Flashing replaces the firmware;
-          slots and saved cards are kept. Flash stock v2.3.0 back when you're
-          done.
-        </p>
-        <div class="row">
-          <button id="flashTest">Flash test firmware…</button>
-          <button id="flashStock">Flash stock v2.3.0…</button>
-          <button id="flashDfu" class="primary" hidden>
-            Allow the bootloader (first time only)…
-          </button>
-          <span id="flashinfo" class="note"></span>
+      <section class="flow" aria-live="polite">
+        <div class="only-connect">
+          <h2>Connect your Chameleon Ultra</h2>
+          <p class="note">
+            Plug your CU in to USB, not Bluetooth, and close anything else using
+            it, such as the CU app or the Python CLI. This browser-based tool
+            requires Chrome or Edge on a computer. See below for alternative
+            options.
+          </p>
+          <div class="row gap-top">
+            <button id="connect" class="primary">Connect CU</button>
+            <span id="connectinfo" class="note"></span>
+          </div>
         </div>
-      </section>
 
-      <section>
-        <h2>Run</h2>
-        <div class="row" style="margin-bottom: 12px">
-          <button id="connect">Connect CU…</button>
-          <span id="devinfo" class="note">Not connected</span>
-        </div>
-        <div class="row" style="margin-bottom: 12px">
-          <label
-            >Duration
-            <select id="minutes">
+        <div class="only-ready">
+          <div>
+            <div class="ok small">Connected</div>
+            <div class="title" id="devinfo">Chameleon Ultra</div>
+            <div class="note" id="fwinfo">Checking the firmware…</div>
+          </div>
+          <div class="row gap-top">
+            <select id="minutes" aria-label="Duration">
               <option value="5">5 min (rough, about ±2 ppm)</option>
               <option value="15">15 min</option>
-              <option value="30" selected>30 min</option>
+              <option value="30" selected>30 min (recommended)</option>
               <option value="60">60 min</option>
             </select>
-          </label>
-          <label
-            >Burst size
-            <input id="burst" type="number" min="20" max="400" value="120"
-          /></label>
+            <button id="start" class="primary">Start measuring</button>
+          </div>
+          <p class="note gap-top" id="notice">
+            Keep this tab open in the foreground with the computer awake, stay
+            on the same network, and keep the CU away from readers.
+          </p>
+          <details class="options">
+            <summary>Options</summary>
+            <label
+              >Time-server burst size
+              <input id="burst" type="number" min="20" max="400" value="120"
+            /></label>
+          </details>
         </div>
-        <div class="row">
-          <button id="start" class="primary" disabled>Start</button>
-          <button id="finish" disabled>Finish now</button>
-          <button id="abort" disabled>Abort</button>
-          <button id="download" disabled>Download log</button>
+
+        <div class="only-run">
+          <div class="row spread">
+            <h2 class="phase" id="phase">starting</h2>
+            <span class="note" id="elapsed">–</span>
+          </div>
+          <div
+            class="bar"
+            role="progressbar"
+            aria-label="Run progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div id="progress"></div>
+          </div>
+          <div class="note">Estimate so far</div>
+          <div class="big" id="prov">–</div>
+        </div>
+
+        <div class="only-done">
+          <div id="doneinfo" class="small"></div>
+          <div class="big" id="result">–</div>
+          <div class="note" id="resultnote">
+            The crystal's offset, + meaning fast.
+          </div>
+        </div>
+
+        <div class="grid gap-top run-done">
+          <div class="stat">
+            <div class="k">CU relative to this computer</div>
+            <div class="v" id="devrate">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">This computer's clock</div>
+            <div class="v" id="host">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">CU read scatter</div>
+            <div class="v" id="rms">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Network check</div>
+            <div class="v" id="bounds">–</div>
+          </div>
+        </div>
+
+        <div class="row gap-top only-run">
+          <button id="finish">Finish now</button>
+          <button id="abort">Stop</button>
+        </div>
+        <div class="row gap-top only-done">
+          <button id="again">Measure again</button>
+          <button id="download">Download log</button>
+        </div>
+
+        <div class="not-run aside">
+          <div class="small"><b>Firmware</b></div>
+          <p class="note">
+            Measuring needs the test firmware: stock v2.3.0 plus a crystal tick
+            counter (<a href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count">source</a>). Chameleon Ultra only, not Lite.
+            Flashing keeps your slots and saved cards. Flash stock v2.3.0 back
+            when you're done.
+          </p>
+          <div class="row gap-top">
+            <button id="flashTest">Flash test firmware</button>
+            <button id="flashStock">Flash stock v2.3.0</button>
+            <button id="flashDfu" class="primary" hidden>
+              Allow the bootloader (first time only)
+            </button>
+            <span id="flashinfo" class="note"></span>
+          </div>
         </div>
       </section>
 
-      <section>
-        <h2>Progress</h2>
+      <details class="fold" id="details" hidden>
+        <summary><h2>Measurement details</h2></summary>
         <div class="grid">
-          <div class="stat">
-            <div class="k">Phase</div>
-            <div class="v" id="phase">idle</div>
-          </div>
-          <div class="stat">
-            <div class="k">Elapsed</div>
-            <div class="v" id="elapsed">–</div>
-          </div>
           <div class="stat">
             <div class="k">CU reads</div>
             <div class="v" id="reads">–</div>
@@ -110,92 +152,220 @@
             <div class="k">Fastest round trip</div>
             <div class="v" id="minrtt">–</div>
           </div>
-          <div class="stat">
-            <div class="k">Estimate so far</div>
-            <div class="v" id="prov">–</div>
-          </div>
         </div>
-      </section>
+        <div class="plots">
+          <figure>
+            <h3>This computer relative to time server</h3>
+            <canvas id="plot"></canvas>
+            <details class="about">
+              <summary>About this plot</summary>
+              <p class="note">
+                Each dot is one request to the time server. It shows how far
+                this computer's clock has moved relative to the time server
+                since the start of the run. The line only uses the fastest
+                requests (blue), and its slope shows the overall rate at which
+                the computer's clock is moving away from the server. A line
+                falling 1 ms over 5 minutes means the computer's clock runs
+                3.3 ppm slow.
+              </p>
+            </details>
+          </figure>
+          <figure>
+            <h3>CU relative to this computer</h3>
+            <canvas id="devplot"></canvas>
+            <details class="about">
+              <summary>About this plot</summary>
+              <p class="note">
+                Each dot is one reading from the CU's crystal tick counter. It
+                shows how far the CU's clock has moved relative to this
+                computer since the start of the run. The slope shows how
+                quickly the crystal is moving away from this computer's clock,
+                and the scatter represents USB delays. The crystal's true
+                offset (how fast or slow it runs in absolute terms) is this
+                slope plus the computer clock's slope from the other plot.
+              </p>
+            </details>
+          </figure>
+        </div>
+      </details>
 
-      <section>
-        <h2>Result</h2>
-        <div class="big" id="result">–</div>
-        <div class="note" id="resultnote">
-          The crystal's offset, + meaning fast. Shown when the run ends.
+      <details class="fold" id="cli">
+        <summary><h2>Command line (Python script)</h2></summary>
+        <p class="note">
+          <a href="hfxo_ntp.py" download>hfxo_ntp.py</a> performs the same
+          measurement using NTP. It also needs the test firmware.
+        </p>
+        <div class="tabs" role="tablist" aria-label="How to run it">
+          <button role="tab" id="tab-uv" aria-controls="panel-uv" aria-selected="true">uv</button>
+          <button role="tab" id="tab-pipx" aria-controls="panel-pipx" aria-selected="false">pipx</button>
+          <button role="tab" id="tab-python" aria-controls="panel-python" aria-selected="false">Python</button>
+          <button role="tab" id="tab-windows" aria-controls="panel-windows" aria-selected="false">Windows</button>
         </div>
-        <div class="grid" style="margin-top: 12px">
-          <div class="stat">
-            <div class="k">Against this computer's clock</div>
-            <div class="v" id="uncorr">–</div>
+        <div role="tabpanel" id="panel-uv" aria-labelledby="tab-uv">
+          <div class="cmdbox">
+            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+uv run hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
           </div>
-          <div class="stat">
-            <div class="k">This computer's clock</div>
-            <div class="v" id="host">–</div>
-          </div>
-          <div class="stat">
-            <div class="k">CU read scatter</div>
-            <div class="v" id="rms">–</div>
-          </div>
-          <div class="stat" style="grid-column: 1 / -1">
-            <div class="k">Network check</div>
-            <div class="v" id="bounds">–</div>
-          </div>
+          <p class="note">
+            <a href="https://docs.astral.sh/uv/">uv</a> installs pyserial
+            automatically.
+          </p>
         </div>
-      </section>
+        <div role="tabpanel" id="panel-pipx" aria-labelledby="tab-pipx" hidden>
+          <div class="cmdbox">
+            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+pipx run hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">
+            <a href="https://pipx.pypa.io">pipx</a> installs pyserial
+            automatically.
+          </p>
+        </div>
+        <div role="tabpanel" id="panel-python" aria-labelledby="tab-python" hidden>
+          <div class="cmdbox">
+            <pre class="cmd">curl -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+pip install pyserial
+python3 hfxo_ntp.py /dev/tty.usbmodemXXXX</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">On macOS or Linux (on Linux the port is usually /dev/ttyACM0).</p>
+        </div>
+        <div role="tabpanel" id="panel-windows" aria-labelledby="tab-windows" hidden>
+          <div class="cmdbox">
+            <pre class="cmd">curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/chameleon/crystal/hfxo_ntp.py
+py -m pip install pyserial
+py hfxo_ntp.py COM5</pre>
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">In PowerShell or the Command Prompt.</p>
+        </div>
+        <h3>Options</h3>
+        <dl class="options-list">
+          <dt><code>PORT</code></dt>
+          <dd>
+            The CU's serial port: <code>/dev/tty.usbmodem…</code> on macOS,
+            <code>/dev/ttyACM0</code> on Linux, <code>COM5</code> or similar on
+            Windows.
+          </dd>
+          <dt><code>--minutes N</code></dt>
+          <dd>How long to measure. 30 by default.</dd>
+          <dt><code>--server HOST</code></dt>
+          <dd>The NTP server. <code>time.cloudflare.com</code> by default.</dd>
+          <dt><code>--log FILE</code></dt>
+          <dd>Write every sample to a file.</dd>
+        </dl>
+      </details>
 
-      <section>
-        <h2>Time server against this computer</h2>
-        <canvas id="plot"></canvas>
-        <div class="note">
-          Each dot is one request to the time server, with the fitted line taken
-          out. The fit uses the fastest ones (blue). Blue dots far from the line
-          partway through mean the network path changed.
-        </div>
-      </section>
+      <details class="fold" id="protocol">
+        <summary><h2>For developers</h2></summary>
+        <p class="note">
+          The test firmware adds command 3125 to the CU's protocol, a tick
+          counter for the crystal-driven 16 MHz clock (<a href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count"
+            >branch <code>feat/hfxo-count</code></a
+          >).
+        </p>
+        <ul class="note">
+          <li>
+            It takes one byte: 0 starts the counter and holds the crystal on, 1
+            reads it, 2 stops it.
+          </li>
+          <li>
+            The reply is 20 bytes, big-endian: u64 ticks, u32 timer overflows,
+            u32 raw timer value, u16 lapses (times the crystal was released
+            while counting), u8 running, u8 crystal on now.
+          </li>
+          <li>
+            A run with any lapse is rejected: LF activity can release the
+            crystal, so keep the CU away from readers while measuring.
+          </li>
+        </ul>
+      </details>
 
-      <section>
-        <h2>Log</h2>
+      <details class="fold" id="logbox">
+        <summary><h2>Log</h2></summary>
         <pre id="log"></pre>
-      </section>
+      </details>
     </main>
-
+    <script type="importmap">
+      {
+        "imports": {
+          "../common/cu.js": "../common/cu.js?v=56508ea97e",
+          "../common/flash-ui.js": "../common/flash-ui.js?v=7b091e57b9",
+          "./hfxo.js": "./hfxo.js?v=091b8c7bbb",
+          "../../common/page.js": "../../common/page.js?v=d90e2e23bb",
+          "../../common/timefit.js": "../../common/timefit.js?v=ace06b6aae",
+          "../../common/timerun.js": "../../common/timerun.js?v=c103a168a8"
+        }
+      }
+    </script>
     <script type="module">
       import * as H from "./hfxo.js";
       import { SerialCU } from "../common/cu.js";
       import { bindFlashButtons } from "../common/flash-ui.js";
-      import { $, fmt, log, hasWebSerial } from "../../common/page.js";
-      import { newRun, measure, bindRunControls, currentRun } from "../../common/timerun.js";
+      import { $, nowS, log, hasWebSerial, bindTabs, bindCopyButtons } from "../../common/page.js";
+      import { newRun, measure, bindRunControls, currentRun, redrawPlots } from "../../common/timerun.js";
 
       const FIRMWARE = {
         test: { zip: "firmware/hfxo-count-4e494589-ultra-dfu-app.zip", name: "test firmware (hfxo-count 4e494589)" },
         stock: { zip: "../common/firmware/stock-v2.3.0-ultra-dfu-app.zip", name: "stock v2.3.0" },
       };
 
-      let cu = null;
-      let running = false;
+      let cu = null,
+        counter = false, // the connected firmware has command 3125
+        running = false;
+
+      // The page shows one step of the flow at a time: connect, ready, run or done.
+      function setState(state) {
+        $("app").dataset.state = state;
+        const steps = {
+          connect: ["current", "", ""],
+          ready: ["done", "current", ""],
+          run: ["done", "current", ""],
+          done: ["done", "done", "done"],
+        }[state];
+        ["step-connect", "step-measure", "step-result"].forEach((id, i) => ($(id).className = steps[i]));
+        setButtons();
+      }
 
       function setButtons() {
-        $("start").disabled = running || !cu;
-        $("connect").disabled = running;
-        $("finish").disabled = !running;
-        $("abort").disabled = !running;
-        $("download").disabled = running || !currentRun();
+        $("start").disabled = running || !cu || !counter;
+      }
+
+      // ---------------------------------------------------------------- connect and firmware
+
+      // A READ of command 3125 only reports the counter: it works on the test firmware and nothing else.
+      async function checkFirmware(version) {
+        counter = await H.hfxoCount(cu, H.READ).then(
+          () => true,
+          () => false,
+        );
+        $("fwinfo").textContent = counter
+          ? `Firmware ${version}, with the crystal tick counter.`
+          : `Firmware ${version} can't count the crystal's ticks. Flash the test firmware below.`;
+        $("flashTest").className = counter ? "" : "primary";
+        $("start").className = counter ? "primary" : "";
       }
 
       $("connect").onclick = async () => {
-        if (!hasWebSerial()) return;
+        if (!hasWebSerial()) {
+          $("connectinfo").textContent = "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
+          return;
+        }
         try {
           const port = await navigator.serial.requestPort();
           await cu?.close();
           cu = new SerialCU();
           await cu.open(port);
-          const v = await cu.version();
-          $("devinfo").textContent = `Connected: firmware ${v}`;
-          log(`connected, firmware ${v}`);
+          const version = await cu.version();
+          log(`connected, firmware ${version}`);
+          await checkFirmware(version);
+          setState("ready");
         } catch (e) {
           log(`connect failed: ${e.message}`);
+          $("connectinfo").textContent = `Couldn't connect: ${e.message}`;
         }
-        setButtons();
       };
 
       bindFlashButtons({
@@ -204,11 +374,16 @@
         release: async () => {
           await cu?.close();
           cu = null;
-          $("devinfo").textContent = "Not connected";
-          setButtons();
+          counter = false;
         },
-        busy: () => (running ? "finish or abort the run before flashing" : null),
+        busy: () => (running ? "finish or stop the run before flashing" : null),
+        done: (fw) => {
+          $("connectinfo").textContent = `Flashed ${fw.name}. Connect again to continue.`;
+          setState("connect");
+        },
       });
+
+      // ---------------------------------------------------------------- the run
 
       // The CU's tick counter (command 3125). A lapse means the crystal was released, so the rate is invalid.
       const device = {
@@ -222,22 +397,51 @@
         stop: () => H.hfxoCount(cu, H.STOP),
       };
 
+      // the progress bar, every second alongside the shared Elapsed figure
+      setInterval(() => {
+        const run = currentRun();
+        if (!running || !run) return;
+        const done = Math.min(100, ((nowS() - run.t0) / (run.minutes * 60)) * 100);
+        $("progress").style.width = `${done}%`;
+        document.querySelector(".bar").setAttribute("aria-valuenow", String(Math.round(done)));
+      }, 1000);
+
       $("start").onclick = async () => {
         const minutes = Number($("minutes").value);
         const burstN = Math.max(20, Number($("burst").value) | 0);
         const firmware = await cu.version();
-        const run = newRun({ minutes, burstN, nominal: H.NOMINAL, firmware });
-        $("uncorr").textContent = "–";
+        const run = newRun({ minutes, burstN, nominal: H.NOMINAL, device: "CU", firmware });
         log(`run ${run.id}: ${minutes} min, bursts of ${burstN}, firmware ${firmware}`);
+        $("progress").style.width = "0";
         running = true;
-        setButtons();
+        setState("run");
+        $("details").hidden = false;
+        $("details").open = true;
         const r = await measure(device);
-        if (r) $("uncorr").textContent = `${fmt(r.uncorrected)} ppm`;
         running = false;
-        setButtons();
+        if (!r) {
+          $("notice").textContent = `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
+          setState("ready");
+          return;
+        }
+        $("doneinfo").textContent = r.suspect ? "The network check failed. Run it again." : "Measured";
+        $("doneinfo").className = `small ${r.suspect ? "warn" : "ok"}`;
+        setState("done");
       };
 
+      $("again").onclick = () => {
+        $("notice").textContent =
+          "Keep this tab open in the foreground with the computer awake, stay on the same network, and keep the CU away from readers.";
+        setState(cu ? "ready" : "connect");
+      };
+
+      // a plot hidden while its section was closed draws at its real size once it opens
+      $("details").addEventListener("toggle", () => $("details").open && redrawPlots());
+
+      bindTabs();
+      bindCopyButtons();
       bindRunControls("cu-crystal");
+      setState("connect");
     </script>
   </body>
 </html>

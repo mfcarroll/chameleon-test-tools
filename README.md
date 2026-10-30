@@ -25,4 +25,10 @@ build also has a release here, tagged `fw-<branch>-<commit>`. The pages flash wi
 
 `common/` holds what every page shares: the stylesheet, page helpers, and the crystal measurement and its fits.
 
+## Publishing
+
+After changing a page or a script, run `python3 stamp_versions.py` before pushing. It stamps each page's
+modules and stylesheet with a hash of their contents, so a browser never pairs a new page with old cached files.
+`python3 stamp_versions.py --check` reports any page that is out of date.
+
 GPL-3.0.

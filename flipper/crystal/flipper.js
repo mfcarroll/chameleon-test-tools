@@ -141,6 +141,9 @@ export class SerialFlipper {
   async calStart() {
     this.last = null; this.hi = 0;
     for (let attempt = 0; ; attempt++) {
+      // a CR first ends anything half-typed at the shell prompt, such as a progress line sent as the session ended
+      await this.write("\r");
+      await new Promise((r) => setTimeout(r, 300));
       this.text = "";
       await this.write("rfid_detector_cal\r");
       try {
@@ -150,7 +153,8 @@ export class SerialFlipper {
       } catch (e) {
         if (!e.noCommand) throw e;
         if (attempt) throw new Error("the RFID detector app on the Flipper is older than 1.5: install it above");
-        await this.openApp();
+        // the detector already open just needs the command again
+        if (!/detector/i.test((await this.runningApp()) ?? "")) await this.openApp();
       }
     }
   }
@@ -173,16 +177,18 @@ export class SerialFlipper {
     return this.write(msg + "\r");
   }
 
-  // The result: the app saves it and shows it.
-  async calSend(ppm) {
+  // The result and its ±: the app saves them and shows them.
+  async calSend(ppm, sig) {
     const v = Math.round(ppm * 10);
-    await this.write(`s${v}\r`);
+    await this.write(`s${v} ${Math.max(1, Math.round(sig * 10))}\r`);
     await this.lineMatching(new RegExp(`^SET ${v}$`));
   }
 
   async calStop() {
     if (!this.session) return;
     this.session = false;
+    // The Flipper may have ended the session itself (OK or Cancel there). A "q" now would reach its shell.
+    if (/^STOPPED\r?$/m.test(this.text)) { this.text = ""; return; }
     await this.write("q");
     await this.lineMatching(/^STOPPED$/).catch(() => {});
   }

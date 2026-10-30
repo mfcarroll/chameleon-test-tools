@@ -3,11 +3,12 @@
 //   port():    the connected CU's port, reused so the browser doesn't ask again (or null)
 //   release(): close the page's connection to the CU before flashing
 //   busy():    a reason not to flash now, or null
+//   done(fw):  called after a flash succeeds, with the firmware flashed
 
 import { Flasher, loadFlashLib } from "./cu.js";
 import { $, log, hasWebSerial } from "../../common/page.js";
 
-export function bindFlashButtons({ firmware, port, release, busy = () => null }) {
+export function bindFlashButtons({ firmware, port, release, busy = () => null, done = () => {} }) {
   let flash = null;
   loadFlashLib().catch((e) => log(`couldn't load the flashing library: ${e.message}`));
 
@@ -30,6 +31,7 @@ export function bindFlashButtons({ firmware, port, release, busy = () => null })
       if (await flash.start(known)) {
         setFlashing(false, `flashed ${f.name}`);
         flash = null;
+        done(f);
         return;
       }
       $("flashDfu").hidden = false;
@@ -48,7 +50,9 @@ export function bindFlashButtons({ firmware, port, release, busy = () => null })
     try {
       await flash.allowBootloader();
       setFlashing(false, `flashed ${flash.fw.name}`);
+      const flashed = flash.fw;
       flash = null;
+      done(flashed);
     } catch (e) {
       log(`flash failed: ${e.message}`);
       $("flashDfu").hidden = false;

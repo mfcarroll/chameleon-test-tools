@@ -4,98 +4,136 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Flipper Crystal Calibration</title>
-    <link rel="stylesheet" href="../../common/style.css" />
+    <link rel="stylesheet" href="../../common/style.css?v=fdd7bcf6c4" />
   </head>
   <body>
-    <main>
+    <main id="app" data-state="connect">
       <a class="back" href="../../">← RFID test tools</a>
-      <h1>Flipper Zero crystal calibration</h1>
+      <h1>Flipper Zero crystal oscillator calibration</h1>
       <p class="sub">
-        Every Flipper's crystal runs a little fast or slow. This page measures
-        your Flipper's crystal against internet time and saves the correction in
-        the RFID detector app, allowing for accurate measurement of a LF reader
-        field's frequency.
+        Calibrate your Flipper against internet time, so the RFID detector app
+        can measure the precise frequency of a low-frequency RFID field.
       </p>
 
-      <section>
-        <h2>How to calibrate</h2>
-        <ol class="note">
-          <li>
-            <b>In this page</b>, in Chrome or Edge on a computer. It takes about
-            30 minutes.
-          </li>
-          <li>
-            <b>From the command line</b>, with Python: see
-            <a href="#cli">below</a>.
-          </li>
-          <li>
-            <b>By hand</b>, if you already know the offset: in the app, press
-            Left for Config, then <i>Set calibration manually</i>.
-          </li>
-        </ol>
-        <p class="note">
-          Plug the Flipper in by USB and close any other connected apps, e.g.
-          qFlipper. Exit any app that's open on the Flipper itself. The page and
-          the script open the RFID detector app automatically.
-        </p>
-      </section>
+      <ol class="steps" aria-label="Progress">
+        <li id="step-connect"><span>1</span>Connect</li>
+        <li id="step-measure"><span>2</span>Measure</li>
+        <li id="step-save"><span>3</span>Save</li>
+      </ol>
 
-      <section>
-        <h2>Connect</h2>
-        <div class="row" style="margin-bottom: 10px">
-          <button id="connect">Connect Flipper…</button>
-          <span id="devinfo" class="note">Not connected</span>
-        </div>
-        <div class="row">
-          <button id="install" disabled>Install the RFID detector app</button>
-          <span id="installinfo" class="note">Needs version 1.5 or later.</span>
-        </div>
-        <p class="note" style="margin-bottom: 0">
-          Until version 1.5 is in the app catalog, this installs it to
-          <code>/ext/apps/Tools/</code> on OFW or Momentum.
-        </p>
-      </section>
+      <section class="flow" aria-live="polite">
+        <div class="only-connect">
+          <h2>Connect your Flipper</h2>
 
-      <section>
-        <h2>Measure</h2>
-        <div class="row" style="margin-bottom: 12px">
-          <label
-            >Duration
-            <select id="minutes">
+          <p class="note">
+            Plug your Flipper in to USB and close qFlipper. Exit any app that's
+            open on the Flipper itself. This browser-based tool requires Chrome
+            or Edge on a computer. See below for alternative options.
+          </p>
+          <div class="row gap-top">
+            <button id="connect" class="primary">Connect Flipper</button>
+            <span id="connectinfo" class="note"></span>
+          </div>
+          <p class="note aside">
+            Already know the offset? Set it by hand in the app: press Left for
+            Config, then Set calibration manually.
+          </p>
+        </div>
+
+        <div class="only-ready">
+          <div class="row spread">
+            <div>
+              <div class="ok small">Connected</div>
+              <div class="title" id="devinfo">Flipper</div>
+              <div class="note" id="appinfo">
+                Checking the RFID detector app…
+              </div>
+            </div>
+            <button id="install">Install app</button>
+          </div>
+          <p class="note" id="installinfo" hidden></p>
+          <div class="row gap-top">
+            <select id="minutes" aria-label="Duration">
               <option value="5">5 min (rough, about ±2 ppm)</option>
               <option value="15">15 min</option>
-              <option value="30" selected>30 min</option>
+              <option value="30" selected>30 min (recommended)</option>
               <option value="60">60 min</option>
             </select>
-          </label>
-          <label
-            >Burst size
-            <input id="burst" type="number" min="20" max="400" value="120"
-          /></label>
+            <button id="start" class="primary">Start measuring</button>
+          </div>
+          <p class="note gap-top" id="notice">
+            Keep this tab open in the foreground with the computer awake, and
+            stay on the same network.
+          </p>
+          <details class="options">
+            <summary>Options</summary>
+            <label
+              >Time-server burst size
+              <input id="burst" type="number" min="20" max="400" value="120"
+            /></label>
+          </details>
         </div>
-        <div class="row">
-          <button id="start" class="primary" disabled>Start</button>
-          <button id="finish" disabled>Finish now</button>
-          <button id="abort" disabled>Abort</button>
-          <button id="download" disabled>Download log</button>
+
+        <div class="only-run">
+          <div class="row spread">
+            <h2 class="phase" id="phase">starting</h2>
+            <span class="note" id="elapsed">–</span>
+          </div>
+          <div
+            class="bar"
+            role="progressbar"
+            aria-label="Run progress"
+            aria-valuemin="0"
+            aria-valuemax="100"
+          >
+            <div id="progress"></div>
+          </div>
+          <div class="note">Estimate so far</div>
+          <div class="big" id="prov">–</div>
         </div>
-        <p class="note" style="margin-bottom: 0">
-          Keep this tab open and the computer awake, and stay on the same
-          network.
-        </p>
+
+        <div class="only-done">
+          <div id="sendinfo" class="small"></div>
+          <div class="big" id="result">–</div>
+          <div class="note" id="resultnote">
+            The crystal's offset, + meaning fast.
+          </div>
+          <div class="note">Calibration before: <span id="saved">–</span></div>
+        </div>
+
+        <div class="grid gap-top run-done">
+          <div class="stat">
+            <div class="k">Flipper against this computer</div>
+            <div class="v" id="devrate">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">This computer's clock</div>
+            <div class="v" id="host">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Flipper read scatter</div>
+            <div class="v" id="rms">–</div>
+          </div>
+          <div class="stat">
+            <div class="k">Network check</div>
+            <div class="v" id="bounds">–</div>
+          </div>
+        </div>
+
+        <div class="row gap-top only-run">
+          <button id="finish">Finish now</button>
+          <button id="abort">Stop</button>
+        </div>
+        <div class="row gap-top only-done">
+          <button id="send" hidden>Save anyway</button>
+          <button id="again">Measure again</button>
+          <button id="download">Download log</button>
+        </div>
       </section>
 
-      <section>
-        <h2>Progress</h2>
+      <details class="fold" id="details" hidden>
+        <summary><h2>Measurement details</h2></summary>
         <div class="grid">
-          <div class="stat">
-            <div class="k">Phase</div>
-            <div class="v" id="phase">idle</div>
-          </div>
-          <div class="stat">
-            <div class="k">Elapsed</div>
-            <div class="v" id="elapsed">–</div>
-          </div>
           <div class="stat">
             <div class="k">Flipper reads</div>
             <div class="v" id="reads">–</div>
@@ -108,92 +146,171 @@
             <div class="k">Fastest round trip</div>
             <div class="v" id="minrtt">–</div>
           </div>
-          <div class="stat">
-            <div class="k">Estimate so far</div>
-            <div class="v" id="prov">–</div>
-          </div>
         </div>
-      </section>
+        <div class="plots">
+          <figure>
+            <h3>This computer relative to time server</h3>
+            <canvas id="plot"></canvas>
+            <details class="about">
+              <summary>About this plot</summary>
+              <p class="note">
+                Each dot is one request to the time server. It shows how far
+                this computer's clock has moved relative to the time server
+                since the start of the run. The line only uses the fastest
+                requests (blue), and the slope shows how quickly the overall
+                rate at which the computer's clock is moving away from the
+                server. A line falling 1 ms over 5 minutes means the computer's
+                clock runs 3.3 ppm slow.
+              </p>
+            </details>
+          </figure>
+          <figure>
+            <h3>Flipper relative to this computer</h3>
+            <canvas id="devplot"></canvas>
+            <details class="about">
+              <summary>About this plot</summary>
+              <p class="note">
+                Each dot is one reading from the Flipper's internal timer, the
+                crystal oscillator. It shows how far the Flipper's clock has
+                moved relative to this computer since the start of the run. The
+                slope shows how quickly the crystal is moving away from this
+                computer's clock, and the scatter represents USB delays. The
+                crystal's true offset (how fast or slow it runs in absolute
+                terms) is this slope plus the computer clock's slope from the
+                other plot.
+              </p>
+            </details>
+          </figure>
+        </div>
+      </details>
 
-      <section>
-        <h2>Result</h2>
-        <div class="big" id="result">–</div>
-        <div class="note" id="resultnote">
-          The crystal's offset, + meaning fast. Shown when the run ends.
-        </div>
-        <div class="grid" style="margin-top: 12px">
-          <div class="stat">
-            <div class="k">Calibration before</div>
-            <div class="v" id="saved">–</div>
-          </div>
-          <div class="stat">
-            <div class="k">This computer's clock</div>
-            <div class="v" id="host">–</div>
-          </div>
-          <div class="stat">
-            <div class="k">Flipper read scatter</div>
-            <div class="v" id="rms">–</div>
-          </div>
-          <div class="stat" style="grid-column: 1 / -1">
-            <div class="k">Network check</div>
-            <div class="v" id="bounds">–</div>
-          </div>
-        </div>
-        <div class="row" style="margin-top: 12px">
-          <button id="send" disabled>Save anyway</button>
-          <span id="sendinfo" class="note"
-            >A good result is saved on the Flipper automatically. If a check
-            fails, you can still save it.</span
-          >
-        </div>
-      </section>
-
-      <section>
-        <h2>Time server against this computer</h2>
-        <canvas id="plot"></canvas>
-        <div class="note">
-          Each dot is one request to the time server. The fit uses the fastest
-          ones (blue). Blue dots far from the line partway through mean the
-          network path likely changed.
-        </div>
-      </section>
-
-      <section id="cli">
-        <h2>Command line</h2>
-        <p class="note" style="margin-top: 0">
-          <a href="flipper_crystal.py" download>flipper_crystal.py</a> does the
-          same measurement using NTP. It finds the Flipper, opens the app, shows
-          its progress there, and saves a good result.
+      <details class="fold" id="cli">
+        <summary><h2>Command line (Python script)</h2></summary>
+        <p class="note">
+          <a href="flipper_crystal.py" download>flipper_crystal.py</a> performs
+          the same calibration using NTP.
         </p>
-        <h3>With uv</h3>
-        <pre class="cmd">
+        <div class="tabs" role="tablist" aria-label="How to run it">
+          <button
+            role="tab"
+            id="tab-uv"
+            aria-controls="panel-uv"
+            aria-selected="true"
+          >
+            uv
+          </button>
+          <button
+            role="tab"
+            id="tab-pipx"
+            aria-controls="panel-pipx"
+            aria-selected="false"
+          >
+            pipx
+          </button>
+          <button
+            role="tab"
+            id="tab-python"
+            aria-controls="panel-python"
+            aria-selected="false"
+          >
+            Python
+          </button>
+          <button
+            role="tab"
+            id="tab-windows"
+            aria-controls="panel-windows"
+            aria-selected="false"
+          >
+            Windows
+          </button>
+        </div>
+        <div role="tabpanel" id="panel-uv" aria-labelledby="tab-uv">
+          <div class="cmdbox">
+            <pre class="cmd">
 curl -LO https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/flipper_crystal.py
 uv run flipper_crystal.py</pre
+            >
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">
+            <a href="https://docs.astral.sh/uv/">uv</a> installs pyserial
+            automatically.
+          </p>
+        </div>
+        <div
+          role="tabpanel"
+          id="panel-pipx"
+          aria-labelledby="tab-pipx"
+          hidden
         >
-        <p class="note">
-          <a href="https://docs.astral.sh/uv/">uv</a> (or <code>pipx run</code>)
-          installs pyserial automatically.
-        </p>
-        <h3>With Python</h3>
-        <pre class="cmd">
+          <div class="cmdbox">
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/flipper_crystal.py
+pipx run flipper_crystal.py</pre
+            >
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">
+            <a href="https://pipx.pypa.io">pipx</a> installs pyserial
+            automatically.
+          </p>
+        </div>
+        <div
+          role="tabpanel"
+          id="panel-python"
+          aria-labelledby="tab-python"
+          hidden
+        >
+          <div class="cmdbox">
+            <pre class="cmd">
+curl -LO https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/flipper_crystal.py
 pip install pyserial
-python3 flipper_crystal.py        # Windows: py flipper_crystal.py</pre
+python3 flipper_crystal.py</pre
+            >
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">On macOS or Linux.</p>
+        </div>
+        <div
+          role="tabpanel"
+          id="panel-windows"
+          aria-labelledby="tab-windows"
+          hidden
         >
-        <p class="note">
-          Options: <code>--minutes</code> (default 30),
-          <code>--no-send</code> to only print the result,
-          <code>--server</code>, <code>--log</code>. With more than one Flipper
-          plugged in, add its port, such as <code>COM5</code> or
-          <code>/dev/ttyACM0</code>.
-        </p>
-      </section>
+          <div class="cmdbox">
+            <pre class="cmd">
+curl.exe -LO https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/flipper_crystal.py
+py -m pip install pyserial
+py flipper_crystal.py</pre
+            >
+            <button class="copy" aria-label="Copy the commands">Copy</button>
+          </div>
+          <p class="note">In PowerShell or the Command Prompt.</p>
+        </div>
+        <h3>Options</h3>
+        <dl class="options-list">
+          <dt><code>--minutes N</code></dt>
+          <dd>How long to measure. 30 by default.</dd>
+          <dt><code>--no-send</code></dt>
+          <dd>Print the result without saving it on the Flipper.</dd>
+          <dt><code>--server HOST</code></dt>
+          <dd>The NTP server. <code>time.cloudflare.com</code> by default.</dd>
+          <dt><code>--log FILE</code></dt>
+          <dd>Write every sample to a file.</dd>
+          <dt><code>PORT</code></dt>
+          <dd>
+            With more than one Flipper plugged in, the one to use, such as
+            <code>COM5</code> or <code>/dev/ttyACM0</code>.
+          </dd>
+        </dl>
+      </details>
 
-      <section id="protocol">
-        <h2>For developers: the app's CLI command</h2>
-        <p class="note" style="margin-top: 0">
-          While the app (v1.5 or later) is running it adds
-          <code>rfid_detector_cal</code> to the Flipper's CLI. Values are in 0.1
-          ppm, + meaning fast.
+      <details class="fold" id="protocol">
+        <summary><h2>For developers</h2></summary>
+        <p class="note">
+          The RFID detector app (1.5 or later) adds
+          <code>rfid_detector_cal</code> to the Flipper's CLI while the app is
+          running. Values are in 0.1 ppm, + meaning fast.
         </p>
         <ul class="note">
           <li>It replies <code>OK lfcal 64000000 &lt;saved&gt;</code>.</li>
@@ -211,86 +328,193 @@ python3 flipper_crystal.py        # Windows: py flipper_crystal.py</pre
             + Enter updates the progress screen.
           </li>
           <li>
-            <code>s&lt;value&gt;</code> + Enter saves a correction and replies
-            <code>SET &lt;value&gt;</code>.
+            <code>s&lt;value&gt; [&lt;±&gt;]</code> + Enter saves the
+            calibration and its ±. The app replies
+            <code>SET &lt;value&gt;</code> once it has saved it, otherwise
+            <code>ERR &lt;reason&gt;</code>.
           </li>
           <li>
             Anything else ends the session (<code>STOPPED</code>), including
             Cancel on the Flipper.
           </li>
         </ul>
-      </section>
+      </details>
 
-      <section>
-        <h2>Log</h2>
+      <details class="fold" id="logbox">
+        <summary><h2>Log</h2></summary>
         <pre id="log"></pre>
-      </section>
+      </details>
     </main>
-
+    <script type="importmap">
+      {
+        "imports": {
+          "../../common/page.js": "../../common/page.js?v=d90e2e23bb",
+          "../../common/timefit.js": "../../common/timefit.js?v=ace06b6aae",
+          "../../common/timerun.js": "../../common/timerun.js?v=c103a168a8",
+          "./flipper.js": "./flipper.js?v=883fcacbe0"
+        }
+      }
+    </script>
     <script type="module">
-      import { SerialFlipper, NOMINAL, CAL_LIMIT, APP_PATH, pickBuild } from "./flipper.js";
-      import { $, fmt, log, nowS, hasWebSerial } from "../../common/page.js";
-      import { newRun, measure, bindRunControls, currentRun } from "../../common/timerun.js";
+      import {
+        SerialFlipper,
+        NOMINAL,
+        CAL_LIMIT,
+        APP_PATH,
+        pickBuild,
+      } from "./flipper.js";
+      import {
+        $,
+        fmt,
+        fmtPm,
+        log,
+        nowS,
+        hasWebSerial,
+        bindTabs,
+        bindCopyButtons,
+      } from "../../common/page.js";
+      import {
+        newRun,
+        measure,
+        bindRunControls,
+        currentRun,
+        redrawPlots,
+      } from "../../common/timerun.js";
+
+      const CAL_PATH = "/ext/apps_data/nfc_rfid_detector/lf_cal_ppm10.txt";
 
       let fl = null,
         info = null,
+        builds = [],
         build = null,
         running = false;
+
+      // The page shows one step of the flow at a time: connect, ready, run or done.
+      function setState(state) {
+        $("app").dataset.state = state;
+        const saved = state === "done" && currentRun()?.saved !== undefined;
+        const steps = {
+          connect: ["current", "", ""],
+          ready: ["done", "current", ""],
+          run: ["done", "current", ""],
+          done: ["done", "done", saved ? "done" : "current"],
+        }[state];
+        ["step-connect", "step-measure", "step-save"].forEach(
+          (id, i) => ($(id).className = steps[i]),
+        );
+        setButtons();
+      }
 
       function setButtons() {
         const run = currentRun(),
           r = run?.result;
         $("start").disabled = running || !fl;
-        $("connect").disabled = running;
         $("install").disabled = running || !build;
-        $("finish").disabled = !running;
-        $("abort").disabled = !running;
-        $("download").disabled = running || !run;
         // a result that failed a check can still be saved by hand
-        $("send").disabled = running || !r?.suspect || run.saved !== undefined || Math.abs(r.ppm) > CAL_LIMIT;
+        $("send").hidden =
+          running ||
+          !r?.suspect ||
+          run.saved !== undefined ||
+          Math.abs(r.ppm) > CAL_LIMIT;
       }
 
       // ---------------------------------------------------------------- connect and install
 
+      // What's on the Flipper now: whether the app is installed, and the calibration it has saved.
+      async function checkFlipper() {
+        const stat = await fl.cli(`storage stat ${APP_PATH}`).catch(() => "");
+        const installed = /size/i.test(stat) && !/error/i.test(stat);
+        // a build this page made is known by its MD5; another build's version can't be read without opening it
+        const md5 = installed
+          ? ((await fl.cli(`storage md5 ${APP_PATH}`).catch(() => "")).match(
+              /[0-9a-f]{32}/,
+            )?.[0] ?? "")
+          : "";
+        const known = builds.find((b) => b.md5 && b.md5 === md5);
+        const saved = (
+          await fl.cli(`storage read ${CAL_PATH}`).catch(() => "")
+        ).match(/^\s*(-?\d+)(?:\s+(\d+))?\s*$/m);
+        let cal = "Not calibrated yet.";
+        if (saved) {
+          const value = Number(saved[1]) / 10;
+          cal = `Current calibration: ${saved[2] ? fmtPm(value, Number(saved[2]) / 10) : `${fmt(value, 1)} ppm`}`;
+        }
+        $("appinfo").textContent = !installed
+          ? "The RFID detector app isn't installed yet."
+          : `RFID detector app ${known ? `version ${known.version} ` : ""}installed. ${cal}`;
+        $("install").textContent = installed ? "Update app" : "Install app";
+        $("install").className = installed ? "" : "primary";
+        $("start").className = installed ? "primary" : "";
+      }
+
       $("connect").onclick = async () => {
-        if (!hasWebSerial()) return;
+        if (!hasWebSerial()) {
+          $("connectinfo").textContent =
+            "This browser can't reach USB devices. Use Chrome or Edge on a computer.";
+          return;
+        }
         try {
           const port = await navigator.serial.requestPort();
           await fl?.close();
           fl = new SerialFlipper(nowS);
           await fl.open(port);
           info = await fl.deviceInfo();
-          const fw = `${info["firmware.origin.fork"] ?? "?"} ${info["firmware.version"] ?? "?"}, API ${info["firmware.api.major"]}.${info["firmware.api.minor"]}`;
-          $("devinfo").textContent = `Connected: ${info["hardware.name"] ?? "Flipper"}, ${fw}`;
-          log(`connected: ${fw}`);
-          const builds = await fetch("apps/manifest.json", { cache: "no-store" })
+          const fw = `${info["firmware.origin.fork"] ?? "?"} ${info["firmware.version"] ?? "?"}`;
+          $("devinfo").textContent =
+            `${info["hardware.name"] ?? "Flipper"} · ${fw}`;
+          log(
+            `connected: ${fw}, API ${info["firmware.api.major"]}.${info["firmware.api.minor"]}`,
+          );
+          builds = await fetch("apps/manifest.json", { cache: "no-store" })
             .then((r) => r.json())
             .catch(() => []);
           build = pickBuild(builds, info);
-          $("installinfo").textContent = build
-            ? `Build for ${build.label} (API ${build.api.join(".")}), app ${build.version}.`
-            : "No build here for this firmware: use the app that comes with it (1.5 or later), or the official catalog.";
+          if (!build) {
+            $("installinfo").hidden = false;
+            $("installinfo").textContent =
+              "There's no build here for this firmware: use the app that comes with it (1.5 or later), or the official catalog.";
+          }
+          await checkFlipper();
+          setState("ready");
         } catch (e) {
           log(`connect failed: ${e.message}`);
+          $("connectinfo").textContent = `Couldn't connect: ${e.message}`;
         }
-        setButtons();
       };
 
       $("install").onclick = async () => {
         if (!fl || !build) return;
         running = true;
         setButtons();
+        $("installinfo").hidden = false;
         try {
-          const bytes = new Uint8Array(await (await fetch(`apps/${build.file}`)).arrayBuffer());
+          const bytes = new Uint8Array(
+            await (
+              await fetch(`apps/${build.file}`, { cache: "no-cache" })
+            ).arrayBuffer(),
+          );
           // Not `loader close`: older versions of the app leave hardware running when closed that way.
           const open = await fl.runningApp();
-          if (open) throw new Error(`exit "${open}" on the Flipper first (Back until the main screen), then Install again`);
-          log(`installing ${build.file} (${bytes.length} bytes) to ${APP_PATH}`);
+          if (open)
+            throw new Error(
+              `exit "${open}" on the Flipper first (Back until the main screen), then install again`,
+            );
+          log(
+            `installing ${build.file} (${bytes.length} bytes) to ${APP_PATH}`,
+          );
           await fl.cli("storage mkdir /ext/apps/Tools").catch(() => {});
-          await fl.writeFile(APP_PATH, bytes, (p) => ($("installinfo").textContent = `writing ${Math.floor(p * 100)} %`));
+          await fl.writeFile(
+            APP_PATH,
+            bytes,
+            (p) =>
+              ($("installinfo").textContent =
+                `Installing: ${Math.floor(p * 100)} %`),
+          );
           await fl.openApp();
-          $("installinfo").textContent = `Installed app ${build.version}; it's open on its calibration screen. Press Start below.`;
+          $("installinfo").textContent =
+            `Installed app ${build.version}. It's open on its calibration screen.`;
           log("installed and opened");
+          await checkFlipper();
         } catch (e) {
           log(`install failed: ${e.message}`);
           $("installinfo").textContent = `Install failed: ${e.message}`;
@@ -302,7 +526,10 @@ python3 flipper_crystal.py        # Windows: py flipper_crystal.py</pre
       // ---------------------------------------------------------------- the run
 
       const checked = (p) => {
-        if (!p.pll) throw new Error("the Flipper's clock left the crystal (it slept?): re-run");
+        if (!p.pll)
+          throw new Error(
+            "the Flipper's clock left the crystal (it slept?): re-run",
+          );
         return p;
       };
 
@@ -312,31 +539,54 @@ python3 flipper_crystal.py        # Windows: py flipper_crystal.py</pre
           const run = currentRun();
           run.before = await fl.calStart();
           $("saved").textContent = `${fmt(run.before, 1)} ppm`;
-          log(`run ${run.id}: ${run.minutes} min, bursts of ${run.burstN}; the app's calibration is ${fmt(run.before, 1)} ppm`);
+          log(
+            `run ${run.id}: ${run.minutes} min, bursts of ${run.burstN}; the app's calibration is ${fmt(run.before, 1)} ppm`,
+          );
           return checked(await fl.calRead());
         },
         read: async () => checked(await fl.calRead()),
         stop: async () => {},
       };
 
-      // progress for the Flipper's status screen, every 10 s
-      let nextProgress = 0;
+      // progress for the Flipper's status screen after every read, with the estimate once it has settled
       async function onRead(run, t) {
-        if (t < nextProgress) return;
-        await fl.calProgress(t - run.t0, run.minutes * 60, run.estimate);
-        nextProgress = t + 10;
+        await fl.calProgress(
+          t - run.t0,
+          run.minutes * 60,
+          run.estimate?.settled ? run.estimate : null,
+        );
       }
 
-      async function save(ppm) {
+      // the progress bar, every second alongside the shared Elapsed figure
+      setInterval(() => {
+        const run = currentRun();
+        if (!running || !run) return;
+        const done = Math.min(
+          100,
+          ((nowS() - run.t0) / (run.minutes * 60)) * 100,
+        );
+        $("progress").style.width = `${done}%`;
+        document
+          .querySelector(".bar")
+          .setAttribute("aria-valuenow", String(Math.round(done)));
+      }, 1000);
+
+      function showSaved(text, kind) {
+        $("sendinfo").textContent = text;
+        $("sendinfo").className = `small ${kind}`;
+      }
+
+      async function save(ppm, sig) {
         try {
-          await fl.calSend(ppm);
+          await fl.calSend(ppm, sig);
           currentRun().saved = ppm;
-          $("sendinfo").textContent = `Saved ${fmt(ppm, 1)} ppm on the Flipper.`;
-          log(`saved ${fmt(ppm, 1)} ppm on the Flipper`);
+          showSaved("Saved on your Flipper", "ok");
+          log(`saved ${fmtPm(ppm, sig)} on the Flipper`);
         } catch (e) {
+          showSaved(`Not saved: ${e.message}`, "bad");
           log(`saving on the Flipper failed: ${e.message}`);
         }
-        setButtons();
+        setState("done");
       }
 
       $("start").onclick = async () => {
@@ -345,33 +595,62 @@ python3 flipper_crystal.py        # Windows: py flipper_crystal.py</pre
           minutes: Number($("minutes").value),
           burstN: Math.max(20, Number($("burst").value) | 0),
           nominal: NOMINAL,
+          probeEvery: 20,
+          device: "Flipper",
           firmware: info,
         });
         $("saved").textContent = "–";
-        nextProgress = 0;
+        $("progress").style.width = "0";
         running = true;
-        setButtons();
+        setState("run");
+        $("details").hidden = false;
+        $("details").open = true;
         const r = await measure(device, { onRead });
         running = false;
-        if (!r) setButtons();
-        else if (Math.abs(r.ppm) > CAL_LIMIT) {
-          $("sendinfo").textContent = `Not saved: ${fmt(r.ppm, 1)} ppm is beyond the app's ±${CAL_LIMIT}.`;
-          setButtons();
+        if (!r) {
+          $("notice").textContent =
+            `The last run ${$("phase").textContent === "aborted" ? "was stopped" : "didn't finish"}. The log has the details.`;
+          setState("ready");
+        } else if (Math.abs(r.ppm) > CAL_LIMIT) {
+          showSaved(
+            `Not saved: ${fmt(r.ppm, 1)} ppm is beyond the app's ±${CAL_LIMIT}`,
+            "bad",
+          );
+          setState("done");
         } else if (r.suspect) {
-          $("sendinfo").textContent = "Not saved: the network check failed. Run it again, or save it anyway.";
-          setButtons();
-        } else await save(r.ppm);
+          showSaved(
+            "Not saved: the network check failed. Run it again, or save it anyway.",
+            "warn",
+          );
+          setState("done");
+        } else await save(r.ppm, r.sig);
       };
 
       $("send").onclick = () => {
         const r = currentRun()?.result;
         if (r) {
-          $("send").disabled = true;
-          save(r.ppm);
+          $("send").hidden = true;
+          save(r.ppm, r.sig);
         }
       };
 
+      $("again").onclick = async () => {
+        $("notice").textContent =
+          "Keep this tab open in the foreground with the computer awake, and stay on the same network.";
+        if (fl) await checkFlipper().catch(() => {});
+        setState("ready");
+      };
+
+      // a plot hidden while its section was closed draws at its real size once it opens
+      $("details").addEventListener(
+        "toggle",
+        () => $("details").open && redrawPlots(),
+      );
+
+      bindTabs();
+      bindCopyButtons();
       bindRunControls("flipper-crystal");
+      setState("connect");
     </script>
   </body>
 </html>

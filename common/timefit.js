@@ -18,7 +18,7 @@ export function linfit(x, y) {
   return { k, b, res, sigK: n > 2 ? Math.sqrt(ss / (n - 2)) / Math.sqrt(sxx) : NaN };
 }
 
-const median = (a) => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
+export const median = (a) => { const s = [...a].sort((p, q) => p - q), m = s.length >> 1; return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2; };
 
 // Ticks against local mid-bracket time, refit once without reads more than 5 MADs off the
 // line (a USB stall only ever delays a read). Times in seconds.
