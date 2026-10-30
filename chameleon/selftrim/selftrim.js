@@ -269,9 +269,14 @@ export function parseLog(d) {
 }
 
 // One line per event, as plain text.
+// The time since the wake is a u16 of milliseconds that stops at 65535: later events (a CU on USB never sleeps) all
+// carry 65535.
+const MS_MAX = 0xffff;
 export function logLine(e) {
   const t =
-    e.wake != null ? `wake ${e.wake} ${(e.ms / 1000).toFixed(2)} s  ` : "";
+    e.wake != null
+      ? `wake ${e.wake} ${e.ms >= MS_MAX ? "> 65 s" : `${(e.ms / 1000).toFixed(2)} s`}  `
+      : "";
   const f = `field ${e.field}  `;
   switch (e.kind) {
     case 7:
