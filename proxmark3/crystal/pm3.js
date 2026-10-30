@@ -160,6 +160,7 @@ export class Ticks {
 // ---------------------------------------------------------------- fits (shared), at the PM3's 1.5 MHz
 
 import * as T from "../../common/timefit.js";
-export { linfit, sampleOffset, sampleRtt, fastest, refFit, refOffsetAt, boundCheck, halvesCheck } from "../../common/timefit.js";
+export { linfit, sampleOffset, sampleRtt, fastest, refFit, refOffsetAt, boundCheck } from "../../common/timefit.js";
 export const rateFit = (t, ticks, nominal = NOMINAL) => T.rateFit(t, ticks, nominal);
 export const combine = (dev, ref, nominal = NOMINAL) => T.combine(dev, ref, nominal);
+export const halvesCheck = (start, mid, end, t, ticks, nominal = NOMINAL) => T.halvesCheck(start, mid, end, t, ticks, nominal);

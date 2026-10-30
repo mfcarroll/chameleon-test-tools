@@ -89,13 +89,23 @@ export function boundCheck(fit, samples, q = 0.001) {
 // between the end bursts biases k by step / T and nothing at the ends can see it. With a third burst halfway,
 // the two halves' rates differ by 2 x that bias, so their disagreement measures it. Fit on the ends only:
 // the middle burst adds nothing to the slope's precision (it sits at the mean of x).
+// Each half compares the crystal against the reference, not the local clock. The local clock's rate can change
+// between the halves, and the device's rate against the local clock then moves by the opposite amount.
 // ⚠ A slow, steady DRIFT in asymmetry looks exactly like a clock rate and no schedule can detect it.
-export function halvesCheck(start, mid, end, nsig = 3) {
+export function halvesCheck(start, mid, end, t, ticks, nominal, nsig = 3) {
   const a = refFit([start, mid]), b = refFit([mid, end]);
-  if (!a || !b) return null;
-  const diff = (b.k - a.k) * 1e6, sig = Math.hypot(a.sigK, b.sigK) * 1e6;
+  const split = mid.reduce((s, x) => s + (x.tb + x.ta) / 2, 0) / mid.length;
+  const half = (keep) => {
+    const i = t.map((_, k) => k).filter((k) => keep(t[k]));
+    return i.length >= 3 ? rateFit(i.map((k) => t[k]), i.map((k) => ticks[k]), nominal) : null;
+  };
+  const da = half((x) => x <= split), db = half((x) => x >= split);
+  if (!a || !b || !da || !db) return null;
+  const ca = combine(da, a, nominal), cb = combine(db, b, nominal);
+  const diff = cb.ppm - ca.ppm, sig = Math.hypot(ca.sig, cb.sig);
   // `limit`: the largest bias from a single step that could pass unflagged (half the detection threshold).
-  return { first: -a.k * 1e6, second: -b.k * 1e6, diff, sig, limit: (nsig * sig) / 2, ok: Math.abs(diff) <= nsig * sig };
+  return { first: ca.ppm, second: cb.ppm, hostFirst: -a.k * 1e6, hostSecond: -b.k * 1e6, diff, sig,
+    limit: (nsig * sig) / 2, ok: Math.abs(diff) <= nsig * sig };
 }
 
 // Crystal offset against the reference. Ticks per local second f -> per reference second f / (1 + k).

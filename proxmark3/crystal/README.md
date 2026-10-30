@@ -79,9 +79,9 @@ On hardware (macOS, wifi), a PM3 Easy on the `exp/hw-ticks` build read −103.6 
 −103.7 ± 0.1 in a 30 min script run, back to back on 2026-10-29. A 30 min run of the research script that preceded
 these tools read −103.7 ± 0.3 on the same PM3 on 2026-10-24.
 
-Both runs on 2026-10-29 failed the halves check, because the Mac's clock changed rate by about 1.8 ppm between the
-halves. The PM3's offset against the time reference held across the halves (page −103.6 then −103.8, script −103.4
-then −103.5).
+In both runs on 2026-10-29, the Mac's clock changed rate by about 1.8 ppm between the halves. The PM3's offset
+against the time reference held across the halves (page −103.6 then −103.8, script −103.4 then −103.3), and both
+runs pass the halves check.
 
 ## Not tested
 

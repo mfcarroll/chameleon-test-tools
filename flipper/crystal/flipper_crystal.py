@@ -448,16 +448,28 @@ def main():
                 "slept. Run again."
             )
 
-        # The halves check fits the local clock against NTP over each half of the run on
-        # its own, and compares.
+        # The halves check fits each half of the run on its own and compares the crystal's
+        # offset in each. The local clock's rate can change between the halves, and the
+        # Flipper's rate against the local clock then moves the opposite way.
         query_times, query_offsets = fit["query_times"], fit["query_offsets"]
         half = len(query_times) // 2
-        first_drift, first_sigma, _, _ = robust_fit(
-            query_times[: half + 1], query_offsets[: half + 1]
-        )
-        second_drift, second_sigma, _, _ = robust_fit(
-            query_times[half:], query_offsets[half:]
-        )
+        split = ntp_samples[0][0] + query_times[half]
+        halves = []
+        for times, offsets, in_half in (
+            (query_times[: half + 1], query_offsets[: half + 1], lambda t: t <= split),
+            (query_times[half:], query_offsets[half:], lambda t: t >= split),
+        ):
+            drift, drift_sigma, _, _ = robust_fit(times, offsets)
+            half_reads = [read for read in reads if in_half(read[0])]
+            rate, rate_sigma, _, _ = robust_fit(
+                [read_time - half_reads[0][0] for read_time, _ in half_reads],
+                [read_ticks - half_reads[0][1] for _, read_ticks in half_reads],
+            )
+            halves.append((*crystal_ppm(rate, rate_sigma, drift, drift_sigma), drift))
+        (
+            (first_ppm, first_sigma, first_drift),
+            (second_ppm, second_sigma, second_drift),
+        ) = halves
 
         ppm, sigma = fit["ppm"], fit["sigma"]
         print(f"crystal          {quote(ppm, sigma)}   (+ = fast)")
@@ -470,12 +482,12 @@ def main():
             f"{fit['kept']} of {len(ntp_samples)} queries, min round trip "
             f"{fit['min_round_trip'] * 1e3:.1f} ms)"
         )
-        halves_difference = (second_drift - first_drift) * 1e6
-        halves_sigma = math.hypot(first_sigma, second_sigma) * 1e6
-        halves_agree = abs(halves_difference) <= 3 * halves_sigma
+        halves_agree = abs(second_ppm - first_ppm) <= 3 * math.hypot(
+            first_sigma, second_sigma
+        )
         print(
-            f"  halves         computer clock {-first_drift * 1e6:+.1f} then "
-            f"{-second_drift * 1e6:+.1f} ppm: "
+            f"  halves         {first_ppm:+.1f} then {second_ppm:+.1f} ppm (computer clock "
+            f"{-first_drift * 1e6:+.1f} then {-second_drift * 1e6:+.1f}): "
             f"{'ok' if halves_agree else 'DISAGREE (path to the server changed?): re-run'}"
         )
         print(f"  Flipper reads  {len(reads)}, {fit['rms_us']:.0f} us rms")

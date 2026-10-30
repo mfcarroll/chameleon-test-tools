@@ -30,9 +30,10 @@ function rng(seed) {
 // arbitrary epoch; the CU counts at (1 + cuPpm) of true time. Network: each direction 6 ms + exponential
 // queueing (mean 12 ms), so round trips look like the 12.6 ms min / 38 ms median measured to Akamai; the
 // server stamp is truncated to the millisecond. `shift` adds a step in the one-way asymmetry at `shiftAt` of the run.
-function simulate({ seed, cuPpm, hostPpm, minutes = 30, burstN = 120, shift = 0, shiftAt = 0.3 }) {
+function simulate({ seed, cuPpm, hostPpm, minutes = 30, burstN = 120, shift = 0, shiftAt = 0.3, hostStep = 0 }) {
   const r = rng(seed);
-  const loc = (T) => 1.79e9 + 1234.5 + T * (1 + hostPpm * 1e-6);
+  // hostStep: the local clock's rate changes by this many ppm halfway through
+  const loc = (T) => 1.79e9 + 1234.5 + T * (1 + hostPpm * 1e-6) + Math.max(0, T - minutes * 30) * hostStep * 1e-6;
   const ref = [], t = [], ticks = [];
   const D = minutes * 60;
   const req = (T, phase) => {
@@ -53,7 +54,7 @@ function simulate({ seed, cuPpm, hostPpm, minutes = 30, burstN = 120, shift = 0,
   const ph = (p) => ref.filter((s) => s.phase === p);
   const fit = H.refFit([ph("start"), ph("end")]);
   return { res: H.combine(H.rateFit(t, ticks), fit), bc: H.boundCheck(fit, ph("probe")),
-    hc: H.halvesCheck(ph("start"), ph("mid"), ph("end")) };
+    hc: H.halvesCheck(ph("start"), ph("mid"), ph("end"), t, ticks) };
 }
 
 console.log("rate fit");
@@ -96,6 +97,19 @@ for (const shiftMs of [2, 4, 8]) {
   console.log(`${shiftMs} ms one-way delay step at 30% of a 30 min run: mean error ${(errSum / 20).toFixed(2)} ppm (expect ` +
     `${(shiftMs / 2 / 1.8).toFixed(2)}); halves check flagged ${caught}/20, bound check ${bcCaught}/20`);
   if (shiftMs >= 8) check(caught >= 18, `halves check catches a ${shiftMs} ms step (${(shiftMs / 3.6).toFixed(1)} ppm bias)`);
+}
+
+{
+  // the local clock's rate changing halfway, as macOS's did by 1.8 ppm in two runs on 2026-10-29
+  let flagged = 0, errSum = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const { res, hc } = simulate({ seed, cuPpm: 36.45, hostPpm: -5, hostStep: 1.8 });
+    if (!hc.ok) flagged++;
+    errSum += Math.abs(res.ppm - (36.45));
+  }
+  console.log(`local clock rate +1.8 ppm halfway through a 30 min run: mean error ${(errSum / 20).toFixed(2)} ppm; ` +
+    `halves check flagged ${flagged}/20`);
+  check(flagged <= 1, "a change in the local clock's rate is not taken for a path change");
 }
 
 console.log(fails ? `${fails} FAILED` : "selftest ok");

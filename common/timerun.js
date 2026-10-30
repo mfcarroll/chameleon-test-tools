@@ -184,7 +184,7 @@ function finalResult() {
     return null;
   }
   const r = T.combine(fit, ref, run.nominal);
-  const hc = run.midBurst ? T.halvesCheck(run.startBurst, run.midBurst, run.endBurst) : null;
+  const hc = run.midBurst ? T.halvesCheck(run.startBurst, run.midBurst, run.endBurst, run.t, run.c, run.nominal) : null;
   const bc = T.boundCheck(ref, run.ref);
   $("phase").textContent = "done";
   $("result").textContent = fmtPm(r.ppm, r.sig);
@@ -220,7 +220,7 @@ function finalResult() {
   log(`  ref fit: ${ref.n} samples, rms ${ref.rmsMs.toFixed(2)} ms; read fit rms ${(fit.rmsUs / 1000).toFixed(2)} ms, dropped ${fit.dropped}`);
   if (hc)
     log(
-      `  halves: host clock ${fmt(hc.first, 3)} then ${fmt(hc.second, 3)} ppm, diff ${fmt(hc.diff, 3)} ± ${hc.sig.toFixed(3)}: ${hc.ok ? "ok" : "PATH CHANGED"}`,
+      `  halves: crystal ${fmt(hc.first, 3)} then ${fmt(hc.second, 3)} ppm, diff ${fmt(hc.diff, 3)} ± ${hc.sig.toFixed(3)} (host clock ${fmt(hc.hostFirst, 3)} then ${fmt(hc.hostSecond, 3)}): ${hc.ok ? "ok" : "PATH CHANGED"}`,
     );
   log(`  bound check: ${bc.violations}/${bc.of} samples violate (worst ${bc.worstMs.toFixed(2)} ms)`);
   if (suspect) log("  ⚠ the path to the time server changed during the run: treat this result as suspect and re-run");

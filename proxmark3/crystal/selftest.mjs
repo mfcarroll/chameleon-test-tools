@@ -63,9 +63,10 @@ function rng(seed) {
 // count is quantised to 0.67 us and wraps past 2^32, and Ticks adds the wraps back as on the page. True time is T,
 // the local clock runs at (1 + host), each network direction takes 6 ms plus exponential queueing (mean 12 ms), and
 // server stamps are whole milliseconds.
-function simulate({ seed, devPpm, hostPpm, minutes = 30, burstN = 120, shift = 0, shiftAt = 0.3 }) {
+function simulate({ seed, devPpm, hostPpm, minutes = 30, burstN = 120, shift = 0, shiftAt = 0.3, hostStep = 0 }) {
   const r = rng(seed);
-  const loc = (T) => 1.79e9 + 1234.5 + T * (1 + hostPpm * 1e-6);
+  // hostStep: the local clock's rate changes by this many ppm halfway through
+  const loc = (T) => 1.79e9 + 1234.5 + T * (1 + hostPpm * 1e-6) + Math.max(0, T - minutes * 30) * hostStep * 1e-6;
   const ref = [], t = [], ticks = [];
   const D = minutes * 60;
   const req = (T, phase) => {
@@ -88,7 +89,7 @@ function simulate({ seed, devPpm, hostPpm, minutes = 30, burstN = 120, shift = 0
   const ph = (p) => ref.filter((s) => s.phase === p);
   const fit = P.refFit([ph("start"), ph("end")]);
   return { res: P.combine(P.rateFit(t, ticks), fit), bc: P.boundCheck(fit, ph("probe")),
-    hc: P.halvesCheck(ph("start"), ph("mid"), ph("end")) };
+    hc: P.halvesCheck(ph("start"), ph("mid"), ph("end"), t, ticks) };
 }
 
 console.log("rate fit");
@@ -117,6 +118,19 @@ for (const minutes of [30, 15, 60]) {
   check(rms < { 15: 0.8, 30: 0.4, 60: 0.2 }[minutes], "error rms under target");
   check(msig > 0.6 * rms && msig < 1.6 * rms, "reported ± is an honest estimate of the actual scatter");
   check(viol === 0 && flagged <= 1, "no false alarms on a steady path");
+}
+
+{
+  // the local clock's rate changing halfway, as macOS's did by 1.8 ppm in two runs on 2026-10-29
+  let flagged = 0, errSum = 0;
+  for (let seed = 1; seed <= 20; seed++) {
+    const { res, hc } = simulate({ seed, devPpm: -103.7, hostPpm: -5, hostStep: 1.8 });
+    if (!hc.ok) flagged++;
+    errSum += Math.abs(res.ppm - (-103.7));
+  }
+  console.log(`local clock rate +1.8 ppm halfway through a 30 min run: mean error ${(errSum / 20).toFixed(2)} ppm; ` +
+    `halves check flagged ${flagged}/20`);
+  check(flagged <= 1, "a change in the local clock's rate is not taken for a path change");
 }
 
 console.log(fails ? `${fails} FAILED` : "selftest ok");

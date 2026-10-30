@@ -247,15 +247,24 @@ def main():
         raise SystemExit(f"PM3 reads scatter {rms_us / 1e3:.0f} ms rms. The computer probably slept. Run again.")
 
     # The local clock against NTP: offset(t) = a + k t through the fastest half of the queries. k > 0 means the
-    # local clock runs slow. The halves check fits each half of the run on its own and compares the two fits.
+    # local clock runs slow.
     cut = sorted(r for _, _, r in ref_pts)[len(ref_pts) // 2]
     fast = [p for p in ref_pts if p[2] <= cut]
     rx = [m - ref_pts[0][0] for m, _, _ in fast]
     ry = [o for _, o, _ in fast]
     k, ksig, kept, _ = robust_fit(rx, ry)
+
+    # The halves check fits each half of the run on its own and compares the crystal's offset in each. The local
+    # clock's rate can change between the halves, and the device's rate against the local clock then moves the
+    # opposite way.
     half = len(fast) // 2
-    k1, s1, _, _ = robust_fit(rx[: half + 1], ry[: half + 1])
-    k2, s2, _, _ = robust_fit(rx[half:], ry[half:])
+    split = fast[half][0]
+    halves = []
+    for queries, keep in ((fast[: half + 1], lambda t: t <= split), (fast[half:], lambda t: t >= split)):
+        hk, hk_sig, _, _ = robust_fit([m - ref_pts[0][0] for m, _, _ in queries], [o for _, o, _ in queries])
+        pts = [(t, c) for t, c in pm3_pts if keep(t)]
+        hf, hf_sig, _, _ = robust_fit([t - pts[0][0] for t, _ in pts], [c - pts[0][1] for _, c in pts])
+        halves.append(((hf / (1 + hk) / NOMINAL - 1) * 1e6, math.hypot(hf_sig / NOMINAL, hk_sig) * 1e6, -hk * 1e6))
 
     ppm = (f / (1 + k) / NOMINAL - 1) * 1e6
     sig = math.hypot(fsig / NOMINAL, ksig) * 1e6
@@ -265,10 +274,10 @@ def main():
         f"  computer clock {-k * 1e6:+.2f} ppm vs NTP (fastest {kept} of {len(ref_pts)} queries, min round trip "
         f"{min(r for _, _, r in ref_pts) * 1e3:.1f} ms)"
     )
-    diff, dsig = (k2 - k1) * 1e6, math.hypot(s1, s2) * 1e6
-    ok = abs(diff) <= 3 * dsig
+    (p1, s1, c1), (p2, s2, c2) = halves
+    ok = abs(p2 - p1) <= 3 * math.hypot(s1, s2)
     print(
-        f"  halves         computer clock {-k1 * 1e6:+.2f} then {-k2 * 1e6:+.2f} ppm: "
+        f"  halves         {p1:+.2f} then {p2:+.2f} ppm (computer clock {c1:+.2f} then {c2:+.2f}): "
         f"{'ok' if ok else 'DISAGREE (path to the server changed?): re-run'}"
     )
     print(f"  PM3 reads      {len(pm3_pts)}, {rms_us:.0f} us rms")

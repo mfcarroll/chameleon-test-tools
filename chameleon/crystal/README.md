@@ -62,7 +62,9 @@ A + result means the crystal runs fast.
   is resolved once so every query reaches the same machine. Only the fastest half of the queries by round trip go
   into the fit.
 - **Path check:** a change in the network path mid-run (a new route, or a different server behind the name) biases
-  the rate. Both tools fit each half of the run on its own and flag the run if the halves disagree by more than 3σ.
+  the rate. Both tools fit each half of the run on its own and flag the run if the crystal's offset in the two halves
+  differs by more than 3σ. Each half measures the crystal against the reference, not the computer's clock. A change
+  in the computer clock's rate between the halves therefore cancels out of the check.
   A slow, steady drift in path asymmetry looks exactly like a clock rate, and no schedule can catch it.
 - **Sleep:** macOS's monotonic clock stops while the computer sleeps and the CU keeps counting. A run whose CU reads
   scatter more than 20 ms rms is rejected.
