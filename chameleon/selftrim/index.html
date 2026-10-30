@@ -81,20 +81,20 @@
           </table>
         </div>
         <p class="note">
-          <b>Mode</b> applies to HID Prox, Paradox and ioProx slots, and is
-          saved on the CU straight away. <b>stock</b>: as stock firmware.
+          The <b>Mode</b> applies to HID Prox, Paradox and ioProx slots, and the
+          CU saves it straight away. <b>stock</b>: as stock firmware.
           <b>self-trim</b>: the new, stronger modulation drive, matched to the
           reader's clock (learned per slot). <b>new drive only</b>: the new
           drive without the matching, for comparison. <b>+ exact bits</b>: HID
-          Prox and Paradox bits at exactly the standard length; stock firmware
+          Prox and Paradox bits at exactly the standard length. Stock firmware
           makes some bits 4 % short. <b>Fields seen</b>: how many times this
           slot detected a reader arriving since the last clear. A reader that
-          switches its field off and on again quickly can count once, so treat
-          it as "the reader was seen", not an exact number of attempts.
+          switches its field off and on again quickly can count once. Treat the
+          count as "the reader was seen", not an exact number of attempts.
           <b>Reader vs CU</b>: the clock difference self-trim measured and is
-          correcting for; blank until it has learned a reader. Results are kept
-          while the CU sleeps, and lost if the battery runs flat or the firmware
-          is flashed.
+          correcting for. The column stays blank until self-trim has learned a
+          reader. The CU keeps the results while it sleeps. A flat battery or a
+          flash clears them.
         </p>
         <div class="row">
           <button id="clear" disabled>Clear results…</button>
@@ -107,10 +107,9 @@
         <h2>Set up a test</h2>
         <p class="note" style="margin-top: 0">
           Copies one HID Prox, Paradox or ioProx card into several slots, each
-          with a different mode, so they can be compared at a reader by
-          switching slots. The card's data only passes between the CU and this
-          page's memory: it isn't shown, logged or stored, and nothing is sent
-          anywhere else.
+          with a different mode. Compare the slots at a reader by switching
+          between them. The card's data only passes between the CU and this
+          page's memory. The page never shows, logs, stores or sends it.
         </p>
         <div class="row" style="margin-bottom: 12px">
           <label class="note"
@@ -181,10 +180,10 @@
         <p class="note">
           What self-trim did at each presentation: the field arriving, the wide
           search for the reader, a learned reader restored, checks that locked
-          or failed. The CU keeps the last 32 events while it sleeps, so read
-          them here after a test. Needs a wide-search test build
-          (fsk-selftrim-wide 18a1c939 or later keeps the log through sleep;
-          earlier wide builds lose it when the CU sleeps).
+          or failed. The CU keeps the last 32 events while it sleeps. Read them
+          here after a test. The log needs a wide-search test build.
+          fsk-selftrim-wide 18a1c939 or later keeps the log through sleep, and
+          earlier wide builds lose it when the CU sleeps.
         </p>
         <div class="row" style="margin-bottom: 12px">
           <button id="logRead" disabled>Read event log</button>
@@ -230,10 +229,10 @@
     <script type="importmap">
       {
         "imports": {
-          "../common/cu.js": "../common/cu.js?v=6b2efc102b",
+          "../common/cu.js": "../common/cu.js?v=4ce0814c68",
           "../common/flash-ui.js": "../common/flash-ui.js?v=7b15c30015",
-          "./selftrim.js": "./selftrim.js?v=76ac5c2ddf",
-          "../../common/page.js": "../../common/page.js?v=933a5f6b4a"
+          "./selftrim.js": "./selftrim.js?v=fe347b7320",
+          "../../common/page.js": "../../common/page.js?v=7033bf5948"
         }
       }
     </script>

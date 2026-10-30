@@ -3,23 +3,30 @@
 # requires-python = ">=3.8"
 # dependencies = ["pyserial"]
 # ///
-"""Chameleon Ultra crystal offset over USB, timed against an NTP server. The command-line twin of index.html.
+"""Chameleon Ultra crystal offset over USB, measured against an NTP server. The command-line version of index.html.
 
     uv run hfxo_ntp.py /dev/tty.usbmodemXXXX     # or: pipx run hfxo_ntp.py ... (both install pyserial)
     pip install pyserial
     python3 hfxo_ntp.py /dev/tty.usbmodemXXXX [--minutes 30] [--server time.cloudflare.com]
     python3 hfxo_ntp.py COM5 --minutes 15
 
-Needs firmware with command 3125 (HFXO tick counter). Same method as the page: START the counter, READ it every
-2 s with each read bracketed by this computer's monotonic clock, STOP, and fit ticks against time. The monotonic
-clock's own rate error is measured against NTP over the same window and taken out. Differences from the page:
-the reference is NTP over UDP (port 123), one query every 16 s through the whole run instead of bursts, which
-public servers would rate-limit. As on the page, only the fastest half of the queries (by round trip) go into the
-fit: a slow query carries queueing that isn't split evenly between the two directions. The server name is resolved
-once, so every query goes to the same machine. Prints the crystal offset in ppm (+ means the crystal runs fast).
+The script needs firmware with command 3125, the HFXO tick counter.
 
-Keep the CU out of reader fields and run no LF commands during the run: LF code can release the crystal, which
-the firmware counts as a lapse, and a run with lapses is rejected. Keep the computer awake.
+Plug your CU in to USB, not Bluetooth, and close anything else using it, such as the CU app or the Python CLI. Keep
+the CU away from readers, and run no LF commands during the run. LF code can release the crystal. The firmware
+counts each release as a lapse, and the script rejects a run with any lapse. Keep the computer awake.
+
+At the end, the script prints the crystal offset in ppm (+ means the crystal runs fast).
+
+Method: as on the page, the script starts the counter, then reads the counter every 2 s. Each read sits
+between two readings of this computer's monotonic clock. At the end, the script stops the counter and fits the count
+against time. NTP gives the monotonic clock's own rate error over the same time, and the script removes that error
+from the result.
+
+Unlike the page, the script uses NTP over UDP (port 123), with one query every 16 s through the whole run. Public
+NTP servers would rate-limit the page's bursts. As on the page, the fit uses only the fastest half of the queries by
+round trip. A slow query carries queueing that isn't split evenly between the two directions. The script looks up
+the server's name once, and every query then reaches the same machine.
 """
 
 import argparse
@@ -39,8 +46,8 @@ START, READ, STOP = 0, 1, 2
 CU_INTERVAL, NTP_INTERVAL = 2.0, 16.0
 NTP_EPOCH = 2208988800  # 1900 -> 1970
 
-# Local clock: perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on Windows), put on a Unix-ish
-# scale once so offsets stay small. It is never stepped; its rate error is what the NTP fit measures.
+# The local clock is perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on Windows), moved once onto
+# a Unix-like scale to keep offsets small. Nothing steps it, and the NTP fit measures its rate error.
 _BASE = time.time() - time.perf_counter()
 
 
@@ -75,7 +82,7 @@ class CU:
         self.s.write(frame(cmd, data))
         end = time.monotonic() + timeout
         while time.monotonic() < end:
-            self.buf += self.s.read(max(1, self.s.in_waiting))  # not a fixed size: that waits out the timeout
+            self.buf += self.s.read(max(1, self.s.in_waiting))  # a fixed size would wait out the timeout
             while True:
                 i = self.buf.find(0x11)
                 if i < 0:
@@ -110,7 +117,7 @@ class CU:
         status, d = self.cmd(CMD_HFXO_COUNT, bytes([sub]))
         ta = now()
         if status == STATUS_INVALID_CMD:
-            raise SystemExit("this firmware has no command 3125 (HFXO tick counter)")
+            raise SystemExit("this firmware has no command 3125 (the HFXO tick counter). Flash the test firmware.")
         if status != STATUS_SUCCESS or len(d) < 20:
             raise RuntimeError(f"3125 failed: status {status:#x}, {len(d)} bytes")
         ticks, _, _, lapses, running, hfxo = struct.unpack("!QIIHBB", d[:20])
@@ -173,8 +180,10 @@ def robust_fit(x, y):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("port", help="the CU's serial port (/dev/tty.usbmodem..., /dev/ttyACM0, COM5)")
-    ap.add_argument("--minutes", type=float, default=30, help="run length (default 30; 15 is ~+-0.5 ppm)")
-    ap.add_argument("--server", default="time.cloudflare.com", help="NTP server (resolved once)")
+    ap.add_argument(
+        "--minutes", type=float, default=30, help="how long to measure. 30 by default (15 gives about +-0.5 ppm)"
+    )
+    ap.add_argument("--server", default="time.cloudflare.com", help="the NTP server, looked up once")
     ap.add_argument("--log", help="write every sample to this JSON-lines file")
     a = ap.parse_args()
 
@@ -202,7 +211,7 @@ def main():
                 next_ntp += NTP_INTERVAL
             p = cu.hfxo(READ)
             if p["lapses"] or not p["running"]:
-                raise SystemExit("the crystal was released during the run (LF activity?): rejected, run again")
+                raise SystemExit("the CU released its crystal during the run, probably for LF activity. Run again.")
             cu_pts.append((p["t"], p["ticks"]))
             if log:
                 log.write(json.dumps({"cu": [p["t"], p["ticks"]]}) + "\n")
@@ -230,10 +239,10 @@ def main():
     f, fsig, _, _ = robust_fit(x, y)
     rms_us = math.sqrt(sum(r * r for r in linfit(x, y)[2]) / len(x)) / f * 1e6
     if rms_us > 20000:
-        raise SystemExit(f"CU reads scatter {rms_us / 1e3:.0f} ms rms: the computer probably slept. Run again.")
+        raise SystemExit(f"CU reads scatter {rms_us / 1e3:.0f} ms rms. The computer probably slept. Run again.")
 
-    # The local clock against NTP: offset(t) = a + k t through the fastest half of the queries; k > 0 means the
-    # local clock runs slow.
+    # The local clock against NTP: offset(t) = a + k t, where offset is server minus local, through the fastest half
+    # of the queries. k > 0 means the local clock runs slow.
     cut = sorted(r for _, _, r in ref_pts)[len(ref_pts) // 2]
     fast = [p for p in ref_pts if p[2] <= cut]
     rx = [m - ref_pts[0][0] for m, _, _ in fast]

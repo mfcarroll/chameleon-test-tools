@@ -7,10 +7,10 @@ Pages: https://mfcarroll.github.io/rfid-test-tools/
 
 ## Chameleon Ultra
 
-| tool                                         | what it does                                                                                                                                                                                  | firmware                                                                                                                                       |
-| -------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`chameleon/crystal/`](chameleon/crystal/)   | how fast or slow the 32 MHz crystal runs, measured against internet time                                                                                                                      | stock v2.3.0 + command 3125 ([`feat/hfxo-count`](https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count))                            |
-| [`chameleon/selftrim/`](chameleon/selftrim/) | (experiment) emulates HID Prox, Paradox and ioProx cards matched to a reader's clock; put the same card in slots with and without the experimental modes, and see which ones a reader accepts | Paradox PR #489 + self-trim research ([`exp/fsk-selftrim-paradox`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-paradox)) |
+| tool                                         | what it does                                                                                                                                                                                            | firmware                                                                                                                                       |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`chameleon/crystal/`](chameleon/crystal/)   | how fast or slow the 32 MHz crystal runs, measured against internet time                                                                                                                                | stock v2.3.0 + command 3125 ([`feat/hfxo-count`](https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count))                            |
+| [`chameleon/selftrim/`](chameleon/selftrim/) | (experimental) emulates HID Prox, Paradox and ioProx cards matched to a reader's clock; put the same card in slots with and without the various experimental modes, and see which ones a reader accepts | Paradox PR #489 + self-trim research ([`exp/fsk-selftrim-paradox`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-paradox)) |
 
 Each tool needs its own test firmware, available to flash on the page, with stock v2.3.0 for flashing back. The
 firmware is built from branches of [mfcarroll/ChameleonUltra](https://github.com/mfcarroll/ChameleonUltra), and each
@@ -25,9 +25,9 @@ build also has a release here, tagged `fw-<branch>-<commit>`. The pages flash wi
 
 ## Proxmark3
 
-| tool                                       | what it does                                                             | firmware                                                                                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------- |
-| [`proxmark3/crystal/`](proxmark3/crystal/) | how fast or slow the 16 MHz crystal runs, measured against internet time | Iceman master + `CMD_HW_TICKS` ([`feat/hw-ticks`](https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks)), flashed with your own pm3 client |
+| tool                                       | what it does                                                                                                               | firmware                                                                                                                                        |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| [`proxmark3/crystal/`](proxmark3/crystal/) | how fast or slow the 16 MHz crystal runs, measured against internet time; the 125 kHz LF carrier is off by the same amount | Iceman master + `CMD_HW_TICKS` ([`feat/hw-ticks`](https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks)), flashed with your own pm3 client |
 
 `common/` holds what every page shares: the stylesheet, page helpers, and the crystal measurement and its fits.
 `timeserver/` is the Cloudflare Worker behind `time.mfc.cx`, the pages' second time server.

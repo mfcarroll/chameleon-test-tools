@@ -5,25 +5,29 @@
 # ///
 """Measures a Flipper Zero's crystal against internet time (NTP).
 
-The result is saved as the calibration in the RFID detector app (1.5 or later). This is
-the command-line version of https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/
-(the QR code in the app).
+The script saves the result as the calibration in the RFID detector app (1.5 or
+later). This is the command-line version of
+https://mfcarroll.github.io/rfid-test-tools/flipper/crystal/ (the QR code in the app).
 
-    uv run flipper_crystal.py              # or pipx run (both install pyserial)
+    uv run flipper_crystal.py              # or: pipx run flipper_crystal.py
     python3 flipper_crystal.py             # after: pip install pyserial
     python3 flipper_crystal.py COM5 --minutes 15
 
-Plug the Flipper in by USB and close any other connected apps, e.g. qFlipper. Exit any
-app that's open on the Flipper itself. The script finds the Flipper by its USB ID (name
-the port if more than one is plugged in) and opens the app on its Computer calibration
-screen, which shows the progress. If the run passes its checks, the result (ppm, +
-meaning fast) is saved on the Flipper, or with --no-send only printed. Keep the computer
-awake.
+Plug your Flipper in to USB and close qFlipper. Exit any app that's open on the Flipper
+itself. The script finds the Flipper by its USB ID. If more than one Flipper is plugged
+in, give its port. The script opens the app on its "Computer calibration" screen, and
+the app shows the progress there during the run.
 
-Method: the app's `rfid_detector_cal` command reads a 64 MHz timer run from the crystal,
-every 2 s, each read bracketed by this computer's monotonic clock. That clock's own rate
-error is measured against NTP over the same time and taken out: one query every 16 s,
-the fastest half by round trip, the server name resolved once.
+At the end, the script prints the result in ppm (+ means the crystal runs fast). If the
+run passed its checks, the script also saves the result in the app. --no-send skips the
+save. Keep the computer awake.
+
+Method: the app's `rfid_detector_cal` command reads a 64 MHz timer that runs from the
+crystal. The script reads that timer every 2 s, and notes this computer's monotonic
+clock just before and just after each read. NTP gives the monotonic clock's own rate
+error over the same time, and the script removes that error from the result. The script
+queries the NTP server every 16 s and looks up its name only once. The fit uses the
+fastest half of the queries by round trip.
 """
 
 import argparse
@@ -47,9 +51,9 @@ SETTLED_SIGMA = 5.0  # ppm: the running estimate is shown once its +- is under t
 NTP_EPOCH = 2208988800  # 1900 -> 1970
 CAL_LIMIT = 100.0  # ppm, as the app's Calibration screen
 
-# Local clock: perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on
-# Windows), put on a Unix-ish scale once to keep offsets small. It is never stepped, and
-# its rate error is what the NTP fit measures.
+# The local clock is perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on
+# Windows), moved once onto a Unix-like scale to keep offsets small. Nothing steps it, and
+# the NTP fit measures its rate error.
 _BASE = time.time() - time.perf_counter()
 
 
@@ -70,20 +74,18 @@ def find_port():
         return ports[0].device
     if not ports:
         raise SystemExit(
-            "no Flipper found on USB: plug it in (and close qFlipper), or name its port"
+            "no Flipper found on USB. Plug one in and close qFlipper, or give its port."
         )
     names = "\n  ".join(f"{port.device}  {port.description}" for port in ports)
-    raise SystemExit(f"more than one Flipper connected, name one:\n  {names}")
+    raise SystemExit(
+        f"more than one Flipper is connected. Give the port of one:\n  {names}"
+    )
 
 
 class Flipper:
-    """The app's CLI command, protocol in README.md.
+    """A session of the app's rfid_detector_cal command. README.md has the protocol.
 
-    It replies "OK lfcal 64000000 <saved>" on start, then "<count> <pll>" to each b"r".
-    "p<elapsed> <total> [<est> <+->]\\r" shows progress (0.1 ppm, no reply).
-    "s<v>\\r" saves a calibration (0.1 ppm) and replies "SET <v>" once saved, else
-    "ERR ...". Any other byte stops it. The 32-bit count wraps every 67 s, and is
-    unwrapped here.
+    The 32-bit count wraps every 67 s, and read() adds the wraps back.
     """
 
     def __init__(self, port):
@@ -92,8 +94,8 @@ class Flipper:
         except serial.SerialException as error:
             raise SystemExit(
                 f"couldn't open {port}: {error.strerror or error}\n"
-                "Something else has the Flipper's port open: close qFlipper, any browser "
-                "tab connected to the Flipper, and other scripts, then run again."
+                "Something else has the Flipper's port open. Close qFlipper, any browser "
+                "tab connected to the Flipper and any other script, then run again."
             ) from None
         time.sleep(0.4)
         self.ser.reset_input_buffer()
@@ -105,7 +107,7 @@ class Flipper:
             raise TimeoutError("no reply from the Flipper")
         if line == "STOPPED":  # Cancel on the Flipper, or it left Config
             self.open = False
-            raise SystemExit("cancelled on the Flipper: nothing saved")
+            raise SystemExit("cancelled on the Flipper. The calibration is unchanged.")
         return line
 
     def cli(self, cmd, timeout=5):
@@ -123,15 +125,13 @@ class Flipper:
         )
 
     def open_app(self):
-        """Open the app on its Computer calibration screen. A running app gets there
-        through the command itself.
-        """
+        """Open the RFID detector app on its Computer calibration screen."""
         out = self.cli(f"loader open {APP_PATH} cal")
         if out:
             raise SystemExit(
                 f"Flipper: couldn't open the RFID detector app: {out}\n"
-                "Exit any app that's open on the Flipper, or open the app yourself: Left for Config, "
-                "then Calibrate with a computer"
+                "Exit any app that's open on the Flipper, or open the RFID detector yourself. "
+                "Press Left for Config, then choose Calibrate with a computer."
             )
         time.sleep(1.5)
 
@@ -155,9 +155,10 @@ class Flipper:
                 if "could not find command" in line:
                     if attempt:
                         raise SystemExit(
-                            "Flipper: the RFID detector app there is older than 1.5: update it"
+                            "Flipper: the RFID detector app is older than 1.5. Update it."
                         )
-                    # the detector already open just needs the command again
+                    # If the RFID detector app is closed, open it.
+                    # The loop then sends the command again.
                     if "detector" not in (self.running_app() or "").lower():
                         self.open_app()
                     break
@@ -307,8 +308,8 @@ def crystal_ppm(tick_rate, tick_rate_sigma, clock_drift, clock_drift_sigma):
 
 
 def quote(value, sigma):
-    """ "+16.2 +- 0.7 ppm": both to the +-'s first significant digit, or its first two when
-    that digit is 1, and never finer than 0.1 ppm (the app's resolution)."""
+    """ "+16.2 +- 0.7 ppm". Both numbers go to the +-'s first significant digit, or to its
+    first two when that digit is 1, and never finer than 0.1 ppm (the app's resolution)."""
     decimals = 1
     if sigma > 0:
         exponent = math.floor(math.log10(sigma))
@@ -324,8 +325,9 @@ def fit_run(reads, ntp_samples):
     - ppm and sigma
     - tick_rate: Flipper ticks per local second
     - rms_us: the reads' scatter, which shows USB stalls and laptop sleep
-    - clock_drift: the local clock against NTP through the fastest half of the queries,
-      + meaning it runs slow; with kept, query_times and query_offsets from that fit
+    - clock_drift: the local clock against NTP, fitted through the fastest half of the
+      queries (+ means the local clock runs slow)
+    - kept, query_times and query_offsets: that fit's points
     - min_round_trip
     """
     if len(reads) < 10 or len(ntp_samples) < 4:
@@ -366,16 +368,16 @@ def main():
         "--minutes",
         type=float,
         default=30,
-        help="run length (default 30; 15 is ~+-0.5 ppm)",
+        help="how long to measure. 30 by default (15 gives about +-0.5 ppm)",
     )
     parser.add_argument(
-        "--server", default="time.cloudflare.com", help="NTP server (resolved once)"
+        "--server", default="time.cloudflare.com", help="the NTP server, looked up once"
     )
     parser.add_argument("--log", help="write every sample to this JSON-lines file")
     parser.add_argument(
         "--no-send",
         action="store_true",
-        help="only print the result; don't save it on the Flipper",
+        help="print the result without saving it on the Flipper",
     )
     args = parser.parse_args()
 
@@ -409,7 +411,7 @@ def main():
                 next_ntp += NTP_INTERVAL
             if not reading["pll"]:
                 raise SystemExit(
-                    "the Flipper's clock left the crystal during the run: rejected, run again"
+                    "the Flipper's clock left the crystal during the run. Run again."
                 )
             reads.append((reading["t"], reading["ticks"]))
             if log:
@@ -444,7 +446,7 @@ def main():
             raise SystemExit("too short to fit")
         if fit["rms_us"] > 20000:
             raise SystemExit(
-                f"reads scatter {fit['rms_us'] / 1e3:.0f} ms rms: the computer probably "
+                f"reads scatter {fit['rms_us'] / 1e3:.0f} ms rms. The computer probably "
                 "slept. Run again."
             )
 

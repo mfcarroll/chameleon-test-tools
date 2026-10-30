@@ -1,9 +1,10 @@
 // FSK self-trim field test: command 3120's request and reply. No DOM, no Web Serial in here.
 //
-// The test firmware gives each slot a preset, saved on the CU: a mode, 0 stock (as stock firmware), 1 drive (the new
-// modulation drive, no trim), 2 self-trim (the new drive, plus: measure the reader's clock, trim to it, and restart
-// in phase with it; what it learns is kept per slot), plus flag 0x04, exact bits (HID Prox and Paradox bits at
-// exactly 50 carrier cycles on average; stock firmware makes each fc/8 bit 48). Unset slots use the default.
+// The test firmware gives each slot a preset, saved on the CU. The preset is a mode: 0 stock (as stock firmware),
+// 1 drive (the new modulation drive, no trim) or 2 self-trim. Self-trim is the new drive matched to the reader: it
+// measures the reader's clock, trims to it and restarts in phase with it, and keeps what it learns per slot. Flag 0x04
+// adds exact bits: HID Prox and Paradox bits at exactly 50 carrier cycles on average, where stock firmware makes each
+// fc/8 bit 48. Unset slots use the default.
 
 export const CMD_EXP_FSK = 3120;
 export const EXACT_BITS = 0x04;
@@ -166,7 +167,7 @@ export const hex = (b) =>
 export const unhex = (h) =>
   Uint8Array.from(h.match(/../g) ?? [], (x) => parseInt(x, 16));
 
-// A backup file holds each slot's LF side only (type, card, enabled, nickname, mode); HF is never touched.
+// A backup file holds only each slot's LF side (type, card, enabled, nickname, mode). Nothing here touches HF.
 export const BACKUP_KIND = "rfid-test-tools/chameleon/selftrim LF slot backup";
 const OLD_KINDS = ["chameleon-test-tools/selftrim LF slot backup"];
 export function checkBackup(b) {
@@ -189,10 +190,10 @@ export function reqNickLf(slot, name) {
 }
 
 // ---------------------------------------------------------------- self-trim event log (wide-search test builds)
-// Command 3100 at offset 0xFFFE: what self-trim did, the last 32 events, oldest first. From fsk-selftrim-wide 18a1c939
-// the log is kept while the CU sleeps and each event carries the wake (presentation) it happened in and the time since
-// that wake; older wide builds (0fcc91d9 and before) lose it in sleep and send 16-byte events with no header. 0xFFFC
-// clears it. Builds before the wide search have no log.
+// Command 3100 at offset 0xFFFE: what self-trim did, the last 32 events, oldest first. From fsk-selftrim-wide 18a1c939,
+// the CU keeps the log while it sleeps, and each event carries its wake (presentation) and the time since that wake.
+// Older wide builds (0fcc91d9 and before) lose the log in sleep and send 16-byte events with no header. 0xFFFC clears
+// the log. Builds before the wide search have no log.
 
 export const CMD_EVENT_LOG = 3100;
 export const reqLog = () => Uint8Array.of(0xff, 0xfe, 0, 0);

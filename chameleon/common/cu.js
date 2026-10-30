@@ -1,5 +1,5 @@
 // Chameleon Ultra over Web Serial: framing, a one-command-at-a-time client, and DFU flashing.
-// No DOM in here; pages pass callbacks for progress.
+// No DOM in here. Pages pass callbacks for progress.
 
 const nowS = () => (performance.timeOrigin + performance.now()) / 1000;
 
@@ -33,7 +33,7 @@ export function makeFrame(cmd, status = 0, data = new Uint8Array(0)) {
   return f;
 }
 
-// Byte-stream parser; resynchronises on a bad LRC by dropping one byte, as chameleon_com.py does.
+// The byte-stream parser resynchronises on a bad LRC by dropping one byte, as chameleon_com.py does.
 export class FrameParser {
   constructor() {
     this.buf = [];
@@ -135,8 +135,8 @@ export class SerialCU {
 // ---------------------------------------------------------------- flashing
 
 // chameleon-ultra.js does the Nordic DFU. The CU reboots into its bootloader, which is a different USB device with
-// its own permission. Chrome remembers ports it has been allowed, so the browser only asks for the bootloader the
-// first time; after that the flasher finds it. The library always opens the port picker, so connectTo() answers the
+// its own permission. Chrome remembers the ports it has been allowed, and asks for the bootloader only the first
+// time. After that the flasher finds it. The library always opens the port picker, and connectTo() answers the
 // picker with a known port instead.
 const CUJS = "https://cdn.jsdelivr.net/npm/chameleon-ultra.js@0.4.7";
 const DFU_USB = { usbVendorId: 0x1915, usbProductId: 0x521f };
@@ -182,8 +182,8 @@ async function findBootloader(timeoutS = 10) {
   return null;
 }
 
-// One flash. start(knownPort) returns true when it's written, or false when the bootloader needs the user to allow
-// it: then call allowBootloader() from a click.
+// One flash. start(knownPort) returns true once the firmware is written. start() returns false when the browser
+// needs the user to allow the bootloader, and then the page calls allowBootloader() from a click.
 export class Flasher {
   constructor(fw, { log, status }) {
     this.fw = fw;

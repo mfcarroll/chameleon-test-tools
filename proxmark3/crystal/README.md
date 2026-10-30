@@ -1,40 +1,40 @@
-# Proxmark3 crystal offset
+# Proxmark3 crystal oscillator offset
 
-Measures how fast or slow a Proxmark3's 16 MHz crystal runs, in ppm, against internet time, over USB. The PM3's
-125 kHz LF carrier comes from the same crystal and is off by the same ppm. Two tools, same method:
+Measure how fast or slow your Proxmark3's 16 MHz crystal runs, against internet time. The PM3's 125 kHz LF carrier
+comes from the same crystal and is off by the same ppm. Two tools, same method:
 
-- **The page** (`index.html`), in Chrome or Edge on a computer. Live at
+- **The page** (`index.html`), which requires Chrome or Edge on a computer. Live at
   https://mfcarroll.github.io/rfid-test-tools/proxmark3/crystal/
-- **The command line** (`pm3_crystal.py`), using NTP. Needs Python 3, `pyserial`, and outbound UDP port 123.
+- **The command line** (`pm3_crystal.py`), which performs the same measurement using NTP. Needs Python 3,
+  `pyserial`, and outbound UDP port 123.
 
 ```
 uv run pm3_crystal.py /dev/tty.usbmodemXXXX --minutes 30      # COM5 on Windows, /dev/ttyACM0 on Linux
 ```
 
-`uv run` and `pipx run` install pyserial themselves, from the script's inline header. With plain Python,
-`pip install pyserial` first, then `python3 pm3_crystal.py ...`. Quit the pm3 client first. Only one program at a
-time can open the PM3's port.
+`uv` and `pipx` install pyserial automatically, from the script's inline header. With plain Python,
+`pip install pyserial` first, then `python3 pm3_crystal.py ...`. Quit the pm3 client or anything else using the PM3
+first. Only one program at a time can open its port.
 
 ## Firmware
 
-Both tools need the test firmware. Stock firmware has no command that reads a count driven by the crystal, and its
-millisecond tick runs from the internal RC oscillator. The test firmware adds **`CMD_HW_TICKS`** (0x011B), which
-reads the firmware's tick counter.
+Measuring needs the test firmware, which is Iceman master plus a command that reads the crystal-driven tick
+counter, **`CMD_HW_TICKS`** (0x011B). Stock firmware has no such command, and its millisecond tick runs from the
+internal RC oscillator.
 
 - `firmware/hw-ticks-a8471ac1-pm3generic-fullimage.elf`: PM3 Easy and other generic boards (`PLATFORM=PM3GENERIC`)
 - `firmware/hw-ticks-a8471ac1-pm3rdv4-fullimage.elf`: RDV4 (`PLATFORM=PM3RDV4`)
 
 Both images are Iceman master `a078a36db` plus `CMD_HW_TICKS`, from
 [`feat/hw-ticks`](https://github.com/mfcarroll/proxmark3/tree/feat/hw-ticks) at commit `a8471ac1f`. The test
-firmware reports `Iceman/feat/hw-ticks/v4.23346-234-ga8471ac1f`. Flash the image for your board with your own
-client, from your proxmark3 folder:
+firmware reports `Iceman/feat/hw-ticks/v4.23346-234-ga8471ac1f`. Flash it with your own pm3 client. Run the command from your proxmark3 folder, with the image in that folder. On an RDV4, use the RDV4 image's name:
 
 ```
 ./pm3-flash hw-ticks-a8471ac1-pm3generic-fullimage.elf
 ```
 
-`pm3-flash` finds the PM3's port itself. The command writes the OS and leaves the bootloader alone. Run
-`./pm3-flash-fullimage` to go back to your own build. While the test firmware is on the PM3, the pm3 client warns
+`pm3-flash` finds the PM3's port itself. Flashing the OS leaves the bootloader alone. To go back, run
+`./pm3-flash-fullimage` there as usual. While the test firmware is on the PM3, the pm3 client warns
 that the firmware doesn't match the client. The warning is expected.
 
 The page doesn't flash firmware. Every PM3 owner already has the pm3 client, and the client flashes on every
@@ -42,12 +42,13 @@ platform.
 
 ## Use
 
-1. Plug the PM3 in by USB, and quit the pm3 client.
-2. Leave the button alone during the run. Standalone modes and other firmware commands use the same tick counter,
-   and starting one resets or stops the count. The page and the script stop the run when a read's count moves more
-   than 1 s away from the computer's clock.
-3. Keep the computer awake and on the same network for the whole run.
-4. 30 minutes is the default. 5 minutes gives roughly ±2 ppm, 15 about ±0.7, 30 about ±0.3, 60 about ±0.15.
+1. Plug your PM3 in to USB, not Bluetooth, and quit the pm3 client or anything else using it.
+2. Leave the PM3's button alone during the run. Standalone modes and other firmware commands use the same tick
+   counter. Starting any of them resets or stops the count. The page and the script stop the run when a read's count
+   moves more than 1 s away from the computer's clock.
+3. Keep this tab open in the foreground with the computer awake, and stay on the same network for the whole run.
+4. 30 minutes is recommended, and the default. 5 minutes gives roughly ±2 ppm, 15 about ±0.7, 30 about ±0.3, 60
+   about ±0.15.
 
 A + result means the crystal runs fast.
 
@@ -57,8 +58,8 @@ A + result means the crystal runs fast.
 reply is the count as a u32, little-endian.
 
 The tick counter is TC0 and TC1 chained, counting the master clock (MCK) divided by 32. The PLL makes the 48 MHz
-master clock from the 16 MHz crystal. The count therefore runs at 1.5 MHz. The u32 count wraps every 47.7 minutes. The page
-and the script read the count every 2 s and add the wraps back.
+master clock from the 16 MHz crystal. The count therefore runs at 1.5 MHz. The u32 count wraps every 47.7 minutes.
+The page and the script read the count every 2 s and add the wraps back.
 
 The rest of the method is the Chameleon Ultra tool's, run by the same shared code (`../../common/timerun.js` and
 `timefit.js`). [`../../chameleon/crystal/README.md`](../../chameleon/crystal/README.md) describes the time-server

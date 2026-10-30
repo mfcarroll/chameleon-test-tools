@@ -2,7 +2,7 @@
 // clock, and this computer's clock against the server. Shared by the crystal pages.
 // `nominal` is the device's tick rate in Hz.
 
-// Least squares y = k x + b; sigK is the slope's 1-sigma from the residual scatter.
+// Least squares y = k x + b. sigK is the slope's 1-sigma from the residual scatter.
 export function linfit(x, y) {
   const n = x.length;
   let mx = 0,
@@ -41,8 +41,9 @@ export const median = (a) => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2;
 };
 
-// Ticks against local mid-bracket time, refit once without reads more than 5 MADs off the
-// line (a USB stall only ever delays a read). Times in seconds.
+// Fits ticks against local time. Each read's time is the midpoint of the local times just before and just after
+// it. A USB stall delays a read and puts it off the line, and the fit runs once more without reads more than 5 MADs
+// off. Times are in seconds.
 export function rateFit(t, ticks, nominal) {
   const x = t.map((v) => v - t[0]),
     y = ticks.map((v) => v - ticks[0]);
@@ -76,7 +77,7 @@ export function rateFit(t, ticks, nominal) {
 export const sampleOffset = (s) => s.srv - (s.tb + s.ta) / 2;
 export const sampleRtt = (s) => s.ta - s.tb;
 
-// The fastest `frac` of a burst (at least `min`). A fast round trip bounds the stamp tightly; slow ones carry
+// The fastest `frac` of a burst (at least `min`). A fast round trip bounds the stamp tightly. Slow ones carry
 // queueing that is not split evenly between the two directions.
 export function fastest(samples, frac = 0.2, min = 5) {
   const s = [...samples].sort((a, b) => sampleRtt(a) - sampleRtt(b));
@@ -86,9 +87,10 @@ export function fastest(samples, frac = 0.2, min = 5) {
   );
 }
 
-// Local clock against the reference: offset(t) = a + k (t - t0) through the fastest samples of every group
-// given (the two end bursts; during the run, the start burst plus each mid-run probe's best). k > 0 means
-// the local clock runs slow. A constant asymmetry shifts `a` only, so it cancels out of k.
+// Fits the local clock against the reference: offset(t) = a + k (t - t0), where offset is server minus local.
+// The fit uses the fastest samples of each group given: the two end bursts, or during the run the start burst
+// plus each probe's best. k > 0 means the local clock runs slow. A constant asymmetry shifts only `a`, and
+// cancels out of k.
 export function refFit(groups, opts = {}) {
   const pts = groups.flatMap((g) =>
     fastest(g, opts.frac ?? 0.2, opts.min ?? 5),
@@ -111,10 +113,11 @@ export function refFit(groups, opts = {}) {
 
 export const refOffsetAt = (fit, t) => fit.a + fit.k * (t - fit.t0);
 
-// Gross consistency test. The server stamped its reply somewhere between our send and our receipt, so mapped to
-// server time, tb must not be after the stamp and ta must not be before it (+-q for the millisecond stamp).
-// A sample that violates this cannot be explained by jitter. ⚠ Weak: the slack is about one one-way delay
-// (~6 ms here), so it only catches large jumps; halvesCheck is the sensitive one. Returns violations, worst ms.
+// A rough consistency test. The server stamps its reply somewhere between our send (tb) and our receipt (ta).
+// Mapped to server time through the fit, tb must not fall after the stamp, and ta must not fall before it, within
+// q for the millisecond stamp. Jitter can't explain a sample that breaks this. The test is weak: its slack is about
+// one one-way delay (~6 ms here), and it only catches large jumps. halvesCheck is the sensitive check. Returns
+// the violations and the worst one, in ms.
 export function boundCheck(fit, samples, q = 0.001) {
   let n = 0,
     worst = 0;
@@ -130,13 +133,16 @@ export function boundCheck(fit, samples, q = 0.001) {
   return { violations: n, of: samples.length, worstMs: worst * 1e3 };
 }
 
-// The check that matters. A step in the path's asymmetry (route change, a different server behind the name)
-// between the end bursts biases k by step / T and nothing at the ends can see it. With a third burst halfway,
-// the two halves' rates differ by 2 x that bias, so their disagreement measures it. Fit on the ends only:
-// the middle burst adds nothing to the slope's precision (it sits at the mean of x).
+// The check that matters. A path's asymmetry can step partway through a run (a route change, or a different
+// server behind the name). The step biases k by step / T, where T is the run's length, and the end bursts can't
+// see it. A third burst halfway splits the run into halves. A step in one half biases that half's rate by 2 x
+// step / T and leaves the other half alone, and the two halves then disagree.
 // Each half compares the crystal against the reference, not the local clock. The local clock's rate can change
 // between the halves, and the device's rate against the local clock then moves by the opposite amount.
-// ⚠ A slow, steady DRIFT in asymmetry looks exactly like a clock rate and no schedule can detect it.
+// The result itself fits only the end bursts. The middle burst would add nothing to the slope's precision (it sits
+// at the mean of x).
+// ⚠ A slow, steady drift in asymmetry looks exactly like a clock rate, and no schedule of bursts can detect it.
+// sourcesCheck can, when a second server is in use.
 export function halvesCheck(start, mid, end, t, ticks, nominal, nsig = 3) {
   if (!mid.length) return null;
   const a = refFit([start, mid]),
@@ -172,8 +178,8 @@ export function halvesCheck(start, mid, end, t, ticks, nominal, nsig = 3) {
   };
 }
 
-// The local clock against several references: their slopes averaged, each weighted by 1 / sigK^2. Keeps the first
-// fit's a and t0, which only place a plot's baseline.
+// Averages several reference fits' slopes, each weighted by 1 / sigK^2. The result keeps the first fit's a and t0,
+// which only place a plot's baseline.
 export function meanRef(fits) {
   const ok = fits.filter(Boolean);
   if (ok.length < 2) return ok[0] ?? null;
@@ -188,8 +194,9 @@ export function meanRef(fits) {
   };
 }
 
-// Two references reached through different networks. A path problem on one of them moves only its slope, and that
-// includes a slow drift in asymmetry, which the halves check can't see. diff is the crystal against b minus against a.
+// Compares two references reached through different networks. A path problem on one moves only that reference's
+// slope, even a slow drift in asymmetry that the halves check can't see. diff is the crystal's offset against b
+// minus its offset against a.
 export function sourcesCheck(a, b, nsig = 3) {
   const diff = (a.k - b.k) * 1e6,
     sig = Math.hypot(a.sigK, b.sigK) * 1e6;

@@ -1,13 +1,14 @@
 // A crystal measurement against a time server, and the page sections that show it (Progress, Result, the plot).
-// Shared by the crystal pages; the device comes in as { start, read, stop }, each
+// Shared by the crystal pages. The device comes in as { start, read, stop }, each
 // read being { tb, ta, ticks } (ticks bracketed by local times before and after).
 //
 // The reference is two HTTPS time servers with millisecond stamps, open to any page: time.akamai.com/?ms and
-// time.mfc.cx (a Cloudflare Worker, ../timeserver/). Requests alternate between them and come in dense bursts at the
-// start and end, because for a straight-line rate the points belong at the ends, and only each burst's fastest round
-// trips are kept. A third burst halfway checks the network paths didn't change, and the two servers check each other.
-// Small probes between the bursts feed the running estimate and the plot. The local clock is
-// performance.timeOrigin + performance.now(): monotonic and never slewed, so a straight line describes it.
+// time.mfc.cx (a Cloudflare Worker, ../timeserver/). Requests alternate between the two servers. Most come in dense
+// bursts at the start and end of the run, because points at the ends fix a straight-line rate best. The fits keep
+// only each burst's fastest round trips. A third burst halfway checks that the network paths didn't change, and the
+// two servers check each other. Small probes between the bursts feed the running estimate and the plot.
+// The local clock is performance.timeOrigin + performance.now(). It is monotonic and never slewed, and a straight
+// line describes it.
 
 import * as T from "./timefit.js";
 import { $, nowS, fmt, fmtPm, log, sleep, saveJson } from "./page.js";
@@ -67,7 +68,7 @@ async function refSample(phase, src) {
   return s;
 }
 
-// One sample from each server in use; a failed request is counted in `failed` and skipped.
+// One sample from each server in use. A failed request counts in `failed` and gets no sample.
 // The log notes when a server stops answering, with the error, and when it answers again.
 async function refRound(phase, out, failed) {
   for (const src of run.sources) {
@@ -160,7 +161,7 @@ export async function measure(dev, { onRead } = {}) {
       run.readError = e;
       run.aborted = true;
     });
-    // bursts are centred on 0, the halfway point and the end: each starts half a burst early
+    // bursts centre on 0, the halfway point and the end, and each starts half a burst early
     const bt = n * (BURST_GAP + 0.04 * run.sources.length);
     const probesUntil = async (t) => {
       while (!run.aborted && !run.finishNow && nowS() < t) {
@@ -236,7 +237,7 @@ function provisional() {
   $("rms").textContent = `${(fit.rmsUs / 1000).toFixed(2)} ms`;
 }
 
-// The result, with .suspect when a check failed; null when the fits can't be trusted at all.
+// Returns the result, with .suspect when a check failed, or null when the fits can't be trusted at all.
 function finalResult() {
   const fit = T.rateFit(run.t, run.c, run.nominal);
   const fits = REFS.map((_, src) =>
@@ -274,7 +275,7 @@ function finalResult() {
   const used = per.filter(Boolean);
   const sc =
     used.length === 2 ? T.sourcesCheck(used[0].ref, used[1].ref) : null;
-  // a run without its halfway burst finished early; a server that missed that burst only loses its own halves check
+  // a run without its halfway burst finished early. A server that missed that burst only loses its own halves check.
   const unchecked = !run.midBurst || used.every((p) => !p.halves);
   const pathChanged = used.filter((p) => p.halves && !p.halves.ok);
   const offLine = used.filter((p) => p.bounds.violations);
@@ -287,8 +288,8 @@ function finalResult() {
   $("devrate").textContent = `${fmt(r.uncorrected, 1)} ppm`;
   $("host").textContent = `${fmt(-r.hostPpm, 1)} ppm`;
   $("rms").textContent = `${(fit.rmsUs / 1000).toFixed(2)} ms`;
-  // The computer's clock stops while it sleeps and the device keeps counting: the reads then sit on two lines.
-  // USB jitter is about 1 ms rms, so 20 ms is unmistakable.
+  // While the computer sleeps, its clock stops and the device keeps counting. The reads then sit on two lines, and
+  // their scatter grows far beyond USB jitter (about 1 ms rms). A scatter over 20 ms means the computer slept.
   if (fit.rmsUs > 20000) {
     log(
       `⚠ reads scatter ${(fit.rmsUs / 1000).toFixed(0)} ms rms around the fit: did the computer sleep? Rejected.`,
@@ -454,8 +455,8 @@ function bindPlotZoom() {
 
 // ---------------------------------------------------------------- plot
 
-// Draws the plots again from the last fits, for a page that shows them after they were hidden: a canvas that isn't
-// displayed has no size to draw at.
+// Draws the plots again from the last fits. A canvas that isn't displayed has no size to draw at, and a page calls
+// this after showing plots that were hidden.
 export function redrawPlots() {
   if (!run?.plotted) return;
   drawServer(run.plotted.fits, run.plotted.ref);
@@ -476,7 +477,7 @@ function niceTicks(lo, hi, count) {
 // Sets up a plot canvas with its grid and axes: minutes 0 to xmax/60 across, lo to hi ms up. Returns what the
 // caller needs to draw on it.
 function plotFrame(id, xmax, lo, hi) {
-  // a margin above and below the data, so nothing sits on the plot's edge
+  // a margin above and below the data keeps points off the plot's edge
   const margin = (hi - lo) * 0.06;
   lo -= margin;
   hi += margin;
@@ -509,7 +510,7 @@ function plotFrame(id, xmax, lo, hi) {
     g.stroke();
     g.fillText(`${y.toFixed(yAxis.decimals)} ms`, 2, Y(y) + 4);
   }
-  // about one minute label per 60 px, so the labels never run into each other
+  // about one minute label per 60 px keeps the labels apart
   const xAxis = niceTicks(
     0,
     xmax / 60,
@@ -547,9 +548,9 @@ function plotLine(frame, x0, y0, x1, y1, label) {
 
 function drawServer(fits, ref) {
   if (!run.ref.length) return;
-  // This computer's clock against each server's, from that server's line at the start (or its first sample, before
-  // there is a line). The servers' constant offsets differ by a millisecond or two, and each starts at 0. The line
-  // has the mean slope, and a slow computer clock falls below it.
+  // Plots this computer's clock against each server's. The servers' constant offsets differ by a millisecond or
+  // two. Each server's points start at 0, measured from that server's line at the start, or from its first sample
+  // before there is a line. The line has the mean slope, and a slow computer clock falls below it.
   const baseline = REFS.map((_, src) => {
     const first = run.ref.find((s) => s.src === src);
     return fits[src]

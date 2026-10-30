@@ -1,6 +1,6 @@
 // Command 3125, the CU's crystal tick counter: its sub-commands and reply, the client call, and the fits from
 // ../../common/timefit.js at the CU's tick rate. Framing is ../common/cu.js. Shared by index.html and
-// selftest.mjs; no DOM.
+// selftest.mjs, with no DOM.
 
 export {
   lrc,

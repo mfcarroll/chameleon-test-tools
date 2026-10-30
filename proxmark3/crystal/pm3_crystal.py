@@ -3,26 +3,30 @@
 # requires-python = ">=3.8"
 # dependencies = ["pyserial"]
 # ///
-"""Proxmark3 crystal offset over USB, timed against an NTP server. The command-line twin of index.html.
+"""Proxmark3 crystal offset over USB, measured against an NTP server. The command-line version of index.html.
 
     uv run pm3_crystal.py /dev/tty.usbmodemXXXX     # or: pipx run pm3_crystal.py ... (both install pyserial)
     pip install pyserial
     python3 pm3_crystal.py /dev/tty.usbmodemXXXX [--minutes 30] [--server time.cloudflare.com]
     python3 pm3_crystal.py COM5 --minutes 15
 
-Needs firmware with CMD_HW_TICKS (0x011B, branch feat/hw-ticks), and the pm3 client closed. The method is the
-page's. The script starts the tick counter, reads the count every 2 s with each read bracketed by this computer's
-monotonic clock, stops the tick counter, and fits the count against time. The script measures the monotonic clock's
-own rate error against NTP over the same window and takes the error out.
+The script needs firmware with CMD_HW_TICKS (0x011B, branch feat/hw-ticks).
 
-Unlike the page, the script uses NTP over UDP (port 123), with one query every 16 s through the whole run. Public NTP
-servers would rate-limit the page's bursts. As on the page, only the fastest half of the queries by round trip go
-into the fit, because a slow query carries queueing that isn't split evenly between the two directions. The script
-resolves the server name once, and every query then reaches the same machine. The script prints the crystal offset
-in ppm (+ means the crystal runs fast).
+Plug your PM3 in to USB, not Bluetooth, and quit the pm3 client or anything else using it. Leave the PM3's button
+alone during the run. Other firmware commands share the tick counter. The script stops the run when a read's count
+jumps. Keep the computer awake.
 
-Other firmware commands use the same tick counter. Nothing else may talk to the PM3 during the run, and the PM3's
-button must be left alone. The script stops the run when a read's count jumps. Keep the computer awake.
+At the end, the script prints the crystal offset in ppm (+ means the crystal runs fast).
+
+Method: as on the page, the script starts the tick counter, then reads the count every 2 s. Each read sits
+between two readings of this computer's monotonic clock. At the end, the script stops the tick counter and fits the
+count against time. NTP gives the monotonic clock's own rate error over the same time, and the script removes that
+error from the result.
+
+Unlike the page, the script uses NTP over UDP (port 123), with one query every 16 s through the whole run. Public
+NTP servers would rate-limit the page's bursts. As on the page, the fit uses only the fastest half of the queries by
+round trip. A slow query carries queueing that isn't split evenly between the two directions. The script looks up
+the server's name once, and every query then reaches the same machine.
 """
 
 import argparse
@@ -42,8 +46,8 @@ START, READ, STOP = 0, 1, 2
 PM3_INTERVAL, NTP_INTERVAL = 2.0, 16.0
 NTP_EPOCH = 2208988800  # 1900 -> 1970
 
-# Local clock: perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on Windows), put on a Unix-ish
-# scale once so offsets stay small. The clock is never stepped, and the NTP fit measures its rate error.
+# The local clock is perf_counter (mach_absolute_time on macOS, QueryPerformanceCounter on Windows), moved once onto
+# a Unix-like scale to keep offsets small. Nothing steps it, and the NTP fit measures its rate error.
 _BASE = time.time() - time.perf_counter()
 
 
@@ -182,8 +186,10 @@ def robust_fit(x, y):
 def main():
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("port", help="the PM3's serial port (/dev/tty.usbmodem..., /dev/ttyACM0, COM5)")
-    ap.add_argument("--minutes", type=float, default=30, help="run length (default 30; 15 is ~+-0.5 ppm)")
-    ap.add_argument("--server", default="time.cloudflare.com", help="NTP server (resolved once)")
+    ap.add_argument(
+        "--minutes", type=float, default=30, help="how long to measure. 30 by default (15 gives about +-0.5 ppm)"
+    )
+    ap.add_argument("--server", default="time.cloudflare.com", help="the NTP server, looked up once")
     ap.add_argument("--log", help="write every sample to this JSON-lines file")
     a = ap.parse_args()
 
@@ -246,8 +252,8 @@ def main():
     if rms_us > 20000:
         raise SystemExit(f"PM3 reads scatter {rms_us / 1e3:.0f} ms rms. The computer probably slept. Run again.")
 
-    # The local clock against NTP: offset(t) = a + k t through the fastest half of the queries. k > 0 means the
-    # local clock runs slow.
+    # The local clock against NTP: offset(t) = a + k t, where offset is server minus local, through the fastest half
+    # of the queries. k > 0 means the local clock runs slow.
     cut = sorted(r for _, _, r in ref_pts)[len(ref_pts) // 2]
     fast = [p for p in ref_pts if p[2] <= cut]
     rx = [m - ref_pts[0][0] for m, _, _ in fast]

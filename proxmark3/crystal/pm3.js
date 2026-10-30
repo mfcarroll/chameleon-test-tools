@@ -181,7 +181,7 @@ export class UnknownCommand extends Error {
 // ---------------------------------------------------------------- CMD_HW_TICKS
 
 // u8 0 start (resets the count) / 1 read / 2 stop -> u32 count, little-endian. The count wraps every 47.7 min.
-// Ticks adds the wraps back, which relies on reads seconds apart.
+// Ticks adds the wraps back, which works only because reads come seconds apart.
 export class Ticks {
   constructor(pm3) {
     this.pm3 = pm3;

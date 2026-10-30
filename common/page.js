@@ -4,8 +4,8 @@ export const $ = (id) => document.getElementById(id);
 export const nowS = () => (performance.timeOrigin + performance.now()) / 1000;
 export const fmt = (v, d = 2) => (v >= 0 ? "+" : "") + v.toFixed(d);
 
-// "+16.2 ± 0.7 ppm": both to the ±'s first significant digit, or its first two when that digit is 1, and never
-// finer than 0.1 ppm.
+// "+16.2 ± 0.7 ppm". Both numbers go to the ±'s first significant digit, or to its first two when that digit is
+// 1, and never finer than 0.1 ppm.
 export function fmtPm(value, sig) {
   let decimals = 1;
   if (sig > 0) {

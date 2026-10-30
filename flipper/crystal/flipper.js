@@ -58,7 +58,7 @@ export class SerialFlipper {
     w.resolve({ r, ta: this.at });
   }
 
-  // Wait until test(text) returns something; the test consumes what it used from this.text itself.
+  // Wait until test(text) returns something. The test removes what it used from this.text itself.
   until(test, timeoutS = 3) {
     return new Promise((resolve, reject) => {
       this.waiter = {
@@ -80,7 +80,7 @@ export class SerialFlipper {
     );
   }
 
-  // One CLI command; returns its output without the echo and the prompt.
+  // Runs one CLI command and returns its output without the echo and the prompt.
   async cli(cmd, timeoutS = 5) {
     this.text = "";
     await this.write(cmd + "\r");
@@ -107,7 +107,7 @@ export class SerialFlipper {
   }
 
   // Replace a file with `bytes` through `storage write_chunk`, which prints "Ready" and then reads exactly that
-  // many bytes. It appends, so the old file is removed first.
+  // many bytes. write_chunk appends, and this removes the old file first.
   async writeFile(path, bytes, onProgress) {
     await this.cli(`storage remove ${path}`).catch(() => {});
     this.text = "";
@@ -203,7 +203,7 @@ export class SerialFlipper {
     }
   }
 
-  // {tb, ta, ticks, pll}: the 32-bit count unwrapped (it wraps every 67 s; reads are seconds apart).
+  // {tb, ta, ticks, pll}: the 32-bit count unwrapped (it wraps every 67 s, and reads are seconds apart).
   async calRead() {
     const tb = this.now();
     await this.write("r");
@@ -254,8 +254,8 @@ export class SerialFlipper {
   }
 }
 
-// Builds for each firmware family (apps/manifest.json): same fork, same API major, and a minor no newer than the
-// Flipper's. The newest such build wins.
+// Picks the app build for the Flipper's firmware from apps/manifest.json. A build fits when it has the same fork
+// and API major version, and an API minor version no newer than the Flipper's. The newest fitting build wins.
 export function pickBuild(builds, info) {
   const fork = info["firmware.origin.fork"],
     major = Number(info["firmware.api.major"]),
