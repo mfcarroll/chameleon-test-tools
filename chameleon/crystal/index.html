@@ -126,7 +126,9 @@
               href="https://github.com/mfcarroll/ChameleonUltra/tree/feat/hfxo-count"
               >source</a
             >). Chameleon Ultra only, not Lite. Flashing keeps your slots and
-            saved cards. Flash stock v2.3.0 back when you're done.
+            saved cards. Flash stock v2.3.0 back when you're done. The
+            <a href="../selftrim/">FSK self-trim</a> test firmware has the
+            counter too: if your CU is on it, measure without flashing.
           </p>
           <div class="row gap-top">
             <button id="flashTest">Flash test firmware</button>
@@ -403,7 +405,7 @@ py hfxo_ntp.py COM5</pre>
 
       // ---------------------------------------------------------------- connect and firmware
 
-      // A READ of command 3125 only reports the counter: it works on the test firmware and nothing else.
+      // A READ of command 3125 only reports the counter: it works on this test firmware and the FSK self-trim one.
       async function checkFirmware(version) {
         counter = await H.hfxoCount(cu, H.READ).then(
           () => true,

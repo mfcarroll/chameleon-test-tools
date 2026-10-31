@@ -24,6 +24,9 @@ count the crystal's ticks.
   `v2.3.0-5-g4e49458`.
 - `../common/firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for flashing back.
 
+The [FSK self-trim](../selftrim/) test firmware (`0609420c` and later) has command 3125 too. A CU on it can be measured
+here without flashing.
+
 Chameleon Ultra only, not Lite. Flashing keeps your slots and saved cards. Flash stock v2.3.0 back when you're done.
 The page flashes either one over Web Serial using
 [chameleon-ultra.js](https://github.com/taichunmin/chameleon-ultra.js). The page asks for the CU's port and reboots
