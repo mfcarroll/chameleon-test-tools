@@ -38,13 +38,17 @@ reader that restarts its carrier without dropping the field.
 
 ## Firmware
 
-- `firmware/fsk-selftrim-wide-a843c96c-ultra-dfu-app.zip`: built from
-  [`exp/fsk-selftrim-wide`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-wide),
-  commit `a843c96c`. Reports `v2.2.0-84-ga843c96`. It's the Paradox pull request
-  ([#489](https://github.com/RfidResearchGroup/ChameleonUltra/pull/489)) plus fixes for answering a reader that
-  wakes the CU (from [#514](https://github.com/RfidResearchGroup/ChameleonUltra/pull/514) and
-  [#515](https://github.com/RfidResearchGroup/ChameleonUltra/pull/515)), plus the self-trim research code. Since the first test build (`f56e572e`), it searches ±3.5 % for the reader instead
-  of ±300 ppm, no longer locks on its own signal, and keeps an event log through sleep.
+- `firmware/fsk-selftrim-489-f0cec74a-ultra-dfu-app.zip`: built from
+  [`exp/fsk-selftrim-489`](https://github.com/mfcarroll/ChameleonUltra/tree/exp/fsk-selftrim-489),
+  commit `f0cec74a`. Reports `v2.3.0-25-gf0cec74`. It's the Paradox pull request
+  ([#489](https://github.com/RfidResearchGroup/ChameleonUltra/pull/489)) at its current head, plus fixes for answering a
+  reader that wakes the CU (from [#514](https://github.com/RfidResearchGroup/ChameleonUltra/pull/514) and
+  [#515](https://github.com/RfidResearchGroup/ChameleonUltra/pull/515)), plus the self-trim research code. Since the
+  first test build (`f56e572e`), it searches ±3.5 % for the reader instead of ±300 ppm, no longer locks on its own
+  signal, and keeps an event log through sleep.
+- Paradox is tag type 203 in this build, as in #489. The earlier test builds (`f56e572e`, `a843c96c`) used 202, which
+  upstream gives to Pyramid. A Paradox slot set up on one of those shows as Pyramid after flashing this build, and needs
+  setting up again.
 - `../common/firmware/stock-v2.3.0-ultra-dfu-app.zip`: the official v2.3.0 application package, unchanged, for
   flashing back. It has no Paradox support.
 

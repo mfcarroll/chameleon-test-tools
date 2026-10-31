@@ -23,7 +23,7 @@ export const PLANS = {
   6: [0, EXACT_BITS, 2, 2 | EXACT_BITS, 1, 1 | EXACT_BITS],
 };
 export const UNSET = 0xff;
-export const FSK_TYPES = new Set([200, 201, 202]); // HID Prox, ioProx, Paradox: the types the presets apply to
+export const FSK_TYPES = new Set([200, 201, 203]); // HID Prox, ioProx, Paradox: the types the presets apply to
 
 const LF_TYPES = {
   0: "none",
@@ -37,7 +37,8 @@ const LF_TYPES = {
   180: "Jablotron",
   200: "HID Prox",
   201: "ioProx",
-  202: "Paradox",
+  202: "Pyramid",
+  203: "Paradox",
   300: "Indala",
   310: "IDTECK",
 };
@@ -152,7 +153,7 @@ export const LF_CARD = {
   180: [5011, 5010, 0],
   200: [5003, 5002, 0],
   201: [5009, 5008, 0],
-  202: [5015, 5014, 0],
+  203: [5015, 5014, 0],
   310: [5013, 5012, 0],
 };
 const SENSE_LF = 1;
@@ -160,7 +161,7 @@ const SENSE_LF = 1;
 export const EMU_ID = {
   200: [5003, 5002, 13],
   201: [5009, 5008, 16],
-  202: [5015, 5014, 6],
+  203: [5015, 5014, 6],
 };
 
 export const reqSlot = (slot) => Uint8Array.of(slot);
